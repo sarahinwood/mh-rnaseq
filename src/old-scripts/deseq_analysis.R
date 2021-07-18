@@ -1,13 +1,14 @@
-library("tximport")
-library("data.table")
-library("DESeq2")
-library("ggplot2")
+library(tximport)
+library(data.table)
+library(DESeq2)
+library(ggplot2)
+library(dplyr)
 
-gene2tx <- fread("data/Trinity.fasta.gene_trans_map", header = FALSE)
+gene2tx <- fread("data/current_assembly/output/trinity/Trinity.fasta.gene_trans_map", header = FALSE)
 tx2gene <- data.frame(gene2tx[, .(V2, V1)])
 
 ##Find all salmon quant files (look in output/salmon for files named quant.sf)
-  quant_files <- list.files(path="output/salmon", pattern = "quant.sf", full.names=TRUE, recursive = TRUE)
+  quant_files <- list.files(path="output/2020_assembly_output/mh_salmon/", pattern = "quant.sf", full.names=TRUE, recursive = TRUE)
 ##assign names to quant files from folder name
   names(quant_files) <- gsub(".*/(.+)_quant/.*", "\\1", quant_files)
 ##import the salmon quant files (tx2gene links transcript ID to Gene ID - required for gene-level summarisation... 
@@ -18,6 +19,35 @@ tx2gene <- data.frame(gene2tx[, .(V2, V1)])
 
 ##design is where to chuck in more info about how you want to analyse data(?)
   dds <- DESeqDataSetFromTximport(txi, colData = sample_data, design = ~sample)
+  saveRDS(dds, "output/2019_assembly_ovaries_output/deseq2/dds.rds")
+  dds <- readRDS("output/2019_assembly_ovaries_output/deseq2/dds.rds")
+##get table of counts for each gene - what samples show expression of lbfv genes?
+  counts_table <- data.table((data.frame(counts(dds))), keep.rownames = TRUE)
+  counts_matrix <- data.table(data.frame(counts(dds)), keep.rownames = TRUE)
+  counts_colSums <- data.frame(colSums(counts_matrix, na.rm=TRUE))
+  
+annots <- fread("data/current_assembly/output/trinotate/sorted/best_annot_per_gene.csv")
+  
+##read in list of transcripts that matched to viral scaffolds
+  transcripts_viral_scaffolds <- fread("data/2019_with_ovaries/transcripts_annots_sorted.csv", na.strings = "")
+  transcripts_viral_scaffolds$gene_id <- tstrsplit(transcripts_viral_scaffolds$transcript_id, "_i", keep=c(1))
+  recip_blast_viral <- fread("data/2019_with_ovaries/recip_blastx_viral_transcripts.csv")
+  recip_blast_viral$gene_id <- tstrsplit(recip_blast_viral$transcript_id, "_i", keep=c(1))
+  viral_transcripts_annots <- merge(transcripts_viral_scaffolds, recip_blast_viral, by="gene_id", all=TRUE)
+  viral_transcripts_annots <- viral_transcripts_annots[,c(1,3,5)]
+  setnames(viral_transcripts_annots, old=c("annotation.x", "annotation.y"), new=c("genome_hit_annot", "recip_transcript_blast_annot"))
+  trinotate_viral_annots <- fread("data/2019_with_ovaries/gene_id_vs_viral_annot.csv")
+  viral_transcripts_annots <- merge(viral_transcripts_annots, trinotate_viral_annots, by.x="gene_id", by.y="#gene_id", all=TRUE)
+  
+  ##merge with counts table
+  viral_scaffold_transcript_counts <- merge(viral_transcripts_annots, counts_table, by.x="gene_id", by.y="rn", all.x=TRUE)
+  fwrite(viral_scaffold_transcript_counts, "output/2019_assembly_ovaries_output/deseq2/deseq_counts_viral_scaffold_genes.csv")
+    
+  ##what about transcripts with viral trinotate hits?
+  
+########################################  
+##no replicates, can't do this anymore##
+######################################## 
   dds <- DESeq(dds)
 
 ###sting vs head
