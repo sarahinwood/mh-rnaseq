@@ -1,6 +1,8 @@
 library(data.table)
 library(DESeq2)
 
+##Do I need this now when I have multiQC output?
+
 ##mh reads mapped
 mh_dds <- readRDS("output/deseq2/mh_dds.rds")
 counts_table_mh <- (data.table(counts(mh_dds)))

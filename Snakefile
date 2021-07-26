@@ -12,7 +12,6 @@ all_samples = pep.sample_table['sample_name']
 
 #containers
 salmon_container = 'docker://combinelab/salmon:1.5.1'
-kraken_container = 'docker://staphb/kraken2:2.1.2-no-db'
 multiqc_container = 'docker://ewels/multiqc:v1.11'
 fastqc_container = 'docker://biocontainers/fastqc:v0.11.9_cv8'
 
@@ -23,16 +22,118 @@ fastqc_container = 'docker://biocontainers/fastqc:v0.11.9_cv8'
 rule target:
     input:
      expand('output/mh_salmon/{sample}_quant/quant.sf', sample=all_samples),
+     expand('output/mh_gg_salmon/{sample}_quant/quant.sf', sample=all_samples),
      'output/multiqc/multiqc_report.html',
-     #expand('output/kraken/kraken_{sample}_out.txt', sample=all_samples)
+     'output/gg_multiqc/multiqc_report.html',
+     #expand('output/deseq2/tissue_LRT/{tissue}/{tissue}_GO_enrichment.pdf', tissue=["head", "abdo", "thorax", "venom", "ovary"]),
+     'output/blast/viral_genes/blastn.outfmt6',
+     'output/blast/crawford_venom/blastn.outfmt6'
 
-###############################################
-## look at mapping to genome - STAR probably ##
-###############################################
+#######################################
+## blast seq.s against transcriptome ##
+#######################################
+
+##where are venom genes expressed?
+rule blast_crawford_seq:
+    input:
+        crawford = 'data/crawford_seq/mh_venom_nt.fasta',
+        db = 'output/blast/transcriptome_blastdb/mh_transcriptome.nhr'
+    output:
+        blast_res = 'output/blast/crawford_venom/blastn.outfmt6'
+    params:
+        db = 'output/blast/transcriptome_blastdb/mh_transcriptome'
+    threads:
+        20
+    log:
+        'output/logs/blast_crawford_seq.log'
+    shell:
+        'blastn '
+        '-query {input.crawford} '
+        '-db {params.db} '
+        '-num_threads {threads} '
+        '-evalue 1e-05 '
+        '-outfmt "6 std salltitles" > {output.blast_res} '
+        '2>{log}' 
+
+##where transcripts with homology to viral genes expressed?
+rule blast_viral_genes:
+    input:
+        viral_contigs = 'data/Mh_prodigal/nucleotide_seq.fasta',
+        db = 'output/blast/transcriptome_blastdb/mh_transcriptome.nhr'
+    output:
+        blast_res = 'output/blast/viral_genes/blastn.outfmt6'
+    params:
+        db = 'output/blast/transcriptome_blastdb/mh_transcriptome'
+    threads:
+        20
+    log:
+        'output/logs/blast_viral_genes.log'
+    shell:
+        'blastn '
+        '-query {input.viral_contigs} '
+        '-db {params.db} '
+        '-num_threads {threads} '
+        '-evalue 1e-05 '
+        '-outfmt "6 std salltitles" > {output.blast_res} '
+        '2>{log}'  
+
+rule make_transcriptome_blastdb:
+    input:
+        'data/mh-transcriptome/output/trinity_filtered_isoforms/isoforms_by_length.fasta'
+    output:
+        'output/blast/transcriptome_blastdb/mh_transcriptome.nhr'
+    params:
+        db_name = 'mh_transcriptome',
+        db_dir = 'output/blast/transcriptome_blastdb/mh_transcriptome'
+    threads:
+        10
+    log:
+        'output/logs/make_transcriptome_blastdb.log'
+    shell:
+        'makeblastdb '
+        '-in {input} '
+        '-dbtype nucl '
+        '-title {params.db_name} '
+        '-out {params.db_dir} '
+        '-parse_seqids '
+        '2> {log}'
+
+rule tissue_specific_GO_enrichment:
+    input:
+        tissue_degs_file = 'output/deseq2/tissue_LRT/{tissue}/{tissue}_sp_LRT_annots.csv'
+    output:
+        enrichment_table = 'output/deseq2/tissue_LRT/{tissue}/{tissue}_GO_enrichment.csv',
+        GO_plot = 'output/deseq2/tissue_LRT/{tissue}/{tissue}_GO_enrichment.pdf'
+    threads:
+        10
+    log:
+        'output/logs/{tissue}_specific_GO_enrichment.log'
+    script:
+        'src/LRT/tissue_specific_GO_enrichment.R'
 
 ##############################
 ## map to mh transcriptome ##
 ##############################
+
+
+rule gg_multiqc:
+    input:
+        expand('output/mh_gg_salmon/{sample}_quant/quant.sf', sample=all_samples)
+    output:
+        'output/gg_multiqc/multiqc_report.html'
+    params:
+        outdir = 'output/gg_multiqc',
+        indirs = ['output/mh_gg_salmon', 'output/fastqc']
+    log:
+        'output/logs/gg_multiqc.log'
+    container:
+        multiqc_container
+    shell:
+        'multiqc -f ' ##force to write over old output
+        '-o {params.outdir} '
+        '{params.indirs} '
+        '2> {log}'
+
 
 rule multiqc:
     input:
@@ -51,6 +152,60 @@ rule multiqc:
         '-o {params.outdir} '
         '{params.indirs} '
         '2> {log}'
+
+######################
+## gg transcriptome ##
+######################
+
+rule mh_gg_salmon_quant:
+    input:
+        index_output = 'output/mh_gg_salmon/transcripts_index/refseq.bin',
+        trimmed_r1 = 'output/bbduk_trim/{sample}_r1.fq.gz',
+        trimmed_r2 = 'output/bbduk_trim/{sample}_r2.fq.gz'
+    output:
+        quant = 'output/mh_gg_salmon/{sample}_quant/quant.sf'
+    params:
+        index_outdir = 'output/mh_gg_salmon/transcripts_index',
+        outdir = 'output/mh_gg_salmon/{sample}_quant'
+    threads:
+        20
+    singularity:
+        salmon_container
+    log:
+        'output/mh_gg_salmon/salmon_logs/mh_gg_salmon_quant_{sample}.log'
+    shell:
+        'salmon quant '
+        '-i {params.index_outdir} '
+        '-l ISR '
+        '-1 {input.trimmed_r1} '
+        '-2 {input.trimmed_r2} '
+        '-o {params.outdir} '
+        '-p {threads} '
+        '&> {log}'
+
+rule mh_gg_salmon_index:
+    input:
+        transcriptome_length_filtered = 'data/mh-gg-transcriptome/output/full_assembly/trinity_filtered_isoforms/isoforms_by_length.fasta'
+    output:
+        'output/mh_gg_salmon/transcripts_index/refseq.bin'
+    params:
+        outdir = 'output/mh_gg_salmon/transcripts_index'
+    threads:
+        20
+    singularity:
+        salmon_container
+    log:
+        'output/logs/mh_gg_salmon_index.log'
+    shell:
+        'salmon index '
+        '-t {input.transcriptome_length_filtered} '
+        '-i {params.outdir} '
+        '-p {threads} '
+        '&> {log}'
+
+###########################
+## de novo transcriptome ##
+###########################
 
 rule mh_salmon_quant:
     input:
@@ -96,30 +251,4 @@ rule mh_salmon_index:
         '-t {input.transcriptome_length_filtered} '
         '-i {params.outdir} '
         '-p {threads} '
-        '&> {log}'
-
-##kraken db from https://benlangmead.github.io/aws-indexes/k2 as build std was failing
-rule kraken:
-    input:
-        r1 = 'output/bbduk_trim/{sample}_r1.fq.gz',
-        r2 = 'output/bbduk_trim/{sample}_r2.fq.gz',
-        db = 'bin/db/kraken_std'
-    output:
-        out = 'output/kraken/kraken_{sample}_out.txt',
-        report = 'output/kraken/reports/kraken_{sample}_report.txt'
-    log:
-        'output/logs/kraken/kraken_{sample}.log'
-    threads:
-        20
-    singularity:
-        kraken_container
-    shell:
-        'kraken2 '
-        '--threads {threads} '
-        '--db {input.db} '
-        '--paired '
-        '--output {output.out} '
-        '--report {output.report} '
-        '--use-names '
-        '{input.r1} {input.r2} '
         '&> {log}'

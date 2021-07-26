@@ -16,11 +16,13 @@ txi <- tximport(quant_files, type = "salmon", tx2gene = tx2gene, dropInfReps=TRU
 sample_data <- fread("data/sample_table.csv", header=TRUE)
 setkey(sample_data, sample_name)
 
-##create dds object and link to sample data  
+##create dds object and link to sample data
 dds_all <- DESeqDataSetFromTximport(txi, colData = sample_data[colnames(txi$counts)], design = ~1)
 ##save dds object
 saveRDS(dds_all, 'output/deseq2/mh_dds_all.rds')
 
 ##remove venom3 sample
+dds_ven <- dds_all[,!(dds_all$sample_name=="Mh_venom3")]
+##save dds object
+saveRDS(dds_ven, 'output/deseq2/mh_dds.rds')
 
-mh_dds_ven <- mh_dds[,-c(18)]
