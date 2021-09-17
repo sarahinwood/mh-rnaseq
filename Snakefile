@@ -22,12 +22,12 @@ fastqc_container = 'docker://biocontainers/fastqc:v0.11.9_cv8'
 rule target:
     input:
      expand('output/mh_salmon/{sample}_quant/quant.sf', sample=all_samples),
-     expand('output/mh_gg_salmon/{sample}_quant/quant.sf', sample=all_samples),
+     expand('output/mh_old_salmon/{sample}_quant/quant.sf', sample=all_samples),
      'output/multiqc/multiqc_report.html',
-     'output/gg_multiqc/multiqc_report.html',
+     'output/old_multiqc/multiqc_report.html',
      #expand('output/deseq2/tissue_LRT/{tissue}/{tissue}_GO_enrichment.pdf', tissue=["head", "abdo", "thorax", "venom", "ovary"]),
-     'output/blast/viral_genes/blastn.outfmt6',
-     'output/blast/crawford_venom/blastn.outfmt6'
+     #'output/blast/viral_genes/blastn.outfmt6',
+     #'output/blast/crawford_venom/blastn.outfmt6'
 
 #######################################
 ## blast seq.s against transcriptome ##
@@ -55,49 +55,6 @@ rule blast_crawford_seq:
         '-outfmt "6 std salltitles" > {output.blast_res} '
         '2>{log}' 
 
-##where transcripts with homology to viral genes expressed?
-rule blast_viral_genes:
-    input:
-        viral_contigs = 'data/Mh_prodigal/nucleotide_seq.fasta',
-        db = 'output/blast/transcriptome_blastdb/mh_transcriptome.nhr'
-    output:
-        blast_res = 'output/blast/viral_genes/blastn.outfmt6'
-    params:
-        db = 'output/blast/transcriptome_blastdb/mh_transcriptome'
-    threads:
-        20
-    log:
-        'output/logs/blast_viral_genes.log'
-    shell:
-        'blastn '
-        '-query {input.viral_contigs} '
-        '-db {params.db} '
-        '-num_threads {threads} '
-        '-evalue 1e-05 '
-        '-outfmt "6 std salltitles" > {output.blast_res} '
-        '2>{log}'  
-
-rule make_transcriptome_blastdb:
-    input:
-        'data/mh-transcriptome/output/trinity_filtered_isoforms/isoforms_by_length.fasta'
-    output:
-        'output/blast/transcriptome_blastdb/mh_transcriptome.nhr'
-    params:
-        db_name = 'mh_transcriptome',
-        db_dir = 'output/blast/transcriptome_blastdb/mh_transcriptome'
-    threads:
-        10
-    log:
-        'output/logs/make_transcriptome_blastdb.log'
-    shell:
-        'makeblastdb '
-        '-in {input} '
-        '-dbtype nucl '
-        '-title {params.db_name} '
-        '-out {params.db_dir} '
-        '-parse_seqids '
-        '2> {log}'
-
 rule tissue_specific_GO_enrichment:
     input:
         tissue_degs_file = 'output/deseq2/tissue_LRT/{tissue}/{tissue}_sp_LRT_annots.csv'
@@ -115,17 +72,16 @@ rule tissue_specific_GO_enrichment:
 ## map to mh transcriptome ##
 ##############################
 
-
-rule gg_multiqc:
+rule old_multiqc:
     input:
-        expand('output/mh_gg_salmon/{sample}_quant/quant.sf', sample=all_samples)
+        expand('output/mh_old_salmon/{sample}_quant/quant.sf', sample=all_samples)
     output:
-        'output/gg_multiqc/multiqc_report.html'
+        'output/old_multiqc/multiqc_report.html'
     params:
-        outdir = 'output/gg_multiqc',
-        indirs = ['output/mh_gg_salmon', 'output/fastqc']
+        outdir = 'output/old_multiqc',
+        indirs = ['output/mh_old_salmon', 'output/fastqc']
     log:
-        'output/logs/gg_multiqc.log'
+        'output/logs/old_multiqc.log'
     container:
         multiqc_container
     shell:
@@ -133,7 +89,6 @@ rule gg_multiqc:
         '-o {params.outdir} '
         '{params.indirs} '
         '2> {log}'
-
 
 rule multiqc:
     input:
@@ -153,26 +108,26 @@ rule multiqc:
         '{params.indirs} '
         '2> {log}'
 
-######################
-## gg transcriptome ##
-######################
+#######################
+## old transcriptome ##
+#######################
 
-rule mh_gg_salmon_quant:
+rule mh_old_salmon_quant:
     input:
-        index_output = 'output/mh_gg_salmon/transcripts_index/refseq.bin',
+        index_output = 'output/mh_old_salmon/transcripts_index/refseq.bin',
         trimmed_r1 = 'output/bbduk_trim/{sample}_r1.fq.gz',
         trimmed_r2 = 'output/bbduk_trim/{sample}_r2.fq.gz'
     output:
-        quant = 'output/mh_gg_salmon/{sample}_quant/quant.sf'
+        quant = 'output/mh_old_salmon/{sample}_quant/quant.sf'
     params:
-        index_outdir = 'output/mh_gg_salmon/transcripts_index',
-        outdir = 'output/mh_gg_salmon/{sample}_quant'
+        index_outdir = 'output/mh_old_salmon/transcripts_index',
+        outdir = 'output/mh_old_salmon/{sample}_quant'
     threads:
         20
     singularity:
         salmon_container
     log:
-        'output/mh_gg_salmon/salmon_logs/mh_gg_salmon_quant_{sample}.log'
+        'output/mh_gg_salmon/salmon_logs/mh_old_salmon_quant_{sample}.log'
     shell:
         'salmon quant '
         '-i {params.index_outdir} '
@@ -183,19 +138,19 @@ rule mh_gg_salmon_quant:
         '-p {threads} '
         '&> {log}'
 
-rule mh_gg_salmon_index:
+rule mh_old_salmon_index:
     input:
-        transcriptome_length_filtered = 'data/mh-gg-transcriptome/output/full_assembly/trinity_filtered_isoforms/isoforms_by_length.fasta'
+        transcriptome_length_filtered = 'data/diff_sample_mh_transcriptome/trinity_filtered_isoforms/isoforms_by_length.fasta'
     output:
-        'output/mh_gg_salmon/transcripts_index/refseq.bin'
+        'output/mh_old_salmon/transcripts_index/refseq.bin'
     params:
-        outdir = 'output/mh_gg_salmon/transcripts_index'
+        outdir = 'output/mh_old_salmon/transcripts_index'
     threads:
         20
     singularity:
         salmon_container
     log:
-        'output/logs/mh_gg_salmon_index.log'
+        'output/logs/mh_old_salmon_index.log'
     shell:
         'salmon index '
         '-t {input.transcriptome_length_filtered} '
