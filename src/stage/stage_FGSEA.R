@@ -64,3 +64,12 @@ ggplot(annot_sig_fgsea, aes(pathway_name, NES)) +
   coord_flip() +
   scale_colour_viridis(discrete=TRUE)+
   theme_bw()
+
+##leading edge
+memb_res <- annot_sig_fgsea[annot_sig_fgsea$pathway == "GO:0016021",]
+memb_res_leading_edge <- data.frame(memb_res$leadingEdge)
+setnames(memb_res_leading_edge, old=c("c..TRINITY_DN21376_c1_g1....TRINITY_DN2656_c0_g1....TRINITY_DN15880_c0_g1..."), new=c("gene_id"))
+memb_leading_annots <- merge(memb_res_leading_edge, trinotate_report, by.x="gene_id", by.y="#gene_id")
+fwrite(memb_leading_annots, "output/deseq2/asw/interaction/interaction/fgsea/membrane_leading_edge_annots.csv")
+##plot enrichment of GO term
+plotEnrichment(pathways[["GO:0016021"]], ranks) + labs(title="integral component of membrane")

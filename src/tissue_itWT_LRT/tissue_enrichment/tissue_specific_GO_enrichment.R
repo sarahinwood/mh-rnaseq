@@ -71,7 +71,8 @@ ggplot(plot_results_dt, aes(Description, GeneRatio)) +
        fill="GO domain", size="Leading\nedge size") +
   coord_flip() +
   scale_fill_viridis(discrete=TRUE)+
-  theme_bw()
+  theme_bw()+
+  theme(legend.position = "none")
 dev.off()
 
 # write log

@@ -1,6 +1,7 @@
 library(data.table)
 
 trinotate_report <- fread("data/mh-transcriptome/output/trinotate/trinotate/trinotate_annotation_report.txt", na.strings=".")
+gene_ids <- trinotate_report[!is.na(gene_ontology_Pfam), unique(`#gene_id`)]
 ##fairly sure we always used Pfam GO annots for this
 go_annot_list<-data.table(trinotate_report[,unique(unlist(strsplit(gene_ontology_Pfam, "`")))])
 go_annot_table <- go_annot_list[,tstrsplit(V1, "^", fixed=TRUE)]
