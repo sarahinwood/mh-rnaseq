@@ -1,5 +1,7 @@
 library(data.table)
-library(dplyr)
+library(tidyverse)
+library(pheatmap)
+library(viridis)
 
 crawford_blast_res <- fread("output/blast/crawford_venom/blastn.outfmt6")
 trinotate <- fread("data/mh-transcriptome/output/trinotate/sorted/longest_isoform_annots.csv", na.strings = ".")
@@ -29,12 +31,79 @@ venom_intersect_crawford_blastdt <- venom_intersect_crawford_blast[,c(1,2,3,4,8,
 fwrite(venom_intersect_crawford_blastdt, "output/blast/crawford_venom/venom_transcripts_annots_degs.csv")
 
 ############################
+## heatmap venom proteins ##
+############################
+
+##id to venom protein for plot
+min_evalues_annots$label <- tstrsplit(min_evalues_annots$Crawford_seq, "protein_", keep=c(2))
+min_evalues_annots$label <- tstrsplit(min_evalues_annots$label, "_mRNA", keep=c(1))
+min_evalues_annots$plot_label <- paste("Venom protein", min_evalues_annots$label, sep=" ")
+id_venom <- min_evalues_annots[,c(14,31)]
+
+mh_dds_lrt <- readRDS("output/deseq2/stage_WT/mh_stage_WT.rds")
+##vst transform
+mh_vst <- varianceStabilizingTransformation(mh_dds_lrt, blind=TRUE)
+mh_vst_assay_dt <- data.table(assay(mh_vst), keep.rownames=TRUE)
+
+##subset for genes of interest
+mh_vst_degs <- subset(mh_vst_assay_dt, rn %in% id_venom$`#gene_id`)
+##merge with label
+mh_vst_degs_label <- merge(mh_vst_degs, id_venom, by.x="rn", by.y="#gene_id")
+##remove Trinity ID column
+mh_vst_degs_label <- mh_vst_degs_label[,-c(1)]
+setorder(mh_vst_degs_label, plot_label)
+##turn first row back to row name
+mh_vst_degs_label <- mh_vst_degs_label %>% remove_rownames %>% column_to_rownames(var="plot_label")
+##reorder for plot
+mh_vst_degs_plot <- mh_vst_degs_label[,c(16,17,7,8,9,20,21,4,5,6,19,13,14,15,1,2,3,18,10,11,12)]
+
+##get tissue label info
+sample_to_tissue <- data.table(data.frame(colData(mh_dds_lrt)[,c("tissue", "sample_name")]))
+sample_to_tissue <- sample_to_tissue %>% remove_rownames %>% column_to_rownames(var="sample_name")
+tissue_colours <- list(tissue = c(Head="#440154FF", Thorax="#414487FF", Abdomen="#2A788EFF", Ovaries="#22A884FF", Venom="#7AD151FF", Pupa="#FDE725FF"))
+##plot
+##not clustered by sample
+pheatmap(mh_vst_degs_plot, cluster_rows=FALSE, cluster_cols=FALSE, show_rownames=TRUE,
+         annotation_col=sample_to_tissue, annotation_colors=tissue_colours, annotation_names_col=FALSE,
+         show_colnames = FALSE, border_color=NA, color=viridis(50))
+
+
+############################
 ## plot venom gene counts ##
 ############################
 ##plot venom genes not DE
 mh_dds_lrt <- readRDS("output/deseq2/stage_WT/mh_stage_WT.rds")
-##get gene counts
+##for best hits##
 counts_table <- data.table(counts(mh_dds_lrt, normalized=TRUE), keep.rownames = TRUE)
+best_annot_counts <- filter(counts_table, rn %in% min_evalues_annots$`#gene_id`)
+##melt for plotting
+plot_annots_counts <- best_annot_counts %>% gather(colnames(best_annot_counts)[2:22], key="sample_name", value="normalized_counts")
+##sample group information
+sample_table <- fread("data/sample_table.csv")
+sample_table$group <- paste(sample_table$tissue)
+name_vs_group <- sample_table[,c(1,2)]
+plotting_counts <- inner_join(plot_annots_counts, name_vs_group)
+group_order <- c("Head", "Thorax", "Abdomen", "Ovaries", "Venom", "Pupa")
+plotting_counts$group <- factor(plotting_counts$tissue, levels=group_order)
+##merge with crawford gene annot
+min_evalues_annots$label <- tstrsplit(min_evalues_annots$Crawford_seq, "protein_", keep=c(2))
+min_evalues_annots$label <- tstrsplit(min_evalues_annots$label, "_mRNA", keep=c(1))
+min_evalues_annots$plot_label <- paste("Venom protein", min_evalues_annots$label, sep=" ")
+vp_order <- c("Venom protein 1", "Venom protein 2", "Venom protein 3","Venom protein 4","Venom protein 5", "Venom protein 6", "Venom protein 8", "Venom protein 10")
+min_evalues_annots$plot_label <- factor(min_evalues_annots$plot_label, levels=vp_order)
+gene_to_crawford <- min_evalues_annots[,c(14,31)]
+plotting_counts_crawford_hits <- merge(plotting_counts, gene_to_crawford, by.x="rn", by.y="#gene_id")
+##plot all annot DEGs using ggplot2
+ggplot(plotting_counts_crawford_hits) +
+  geom_point(aes(x = group, y = normalized_counts, colour=group)) +
+  labs(colour="Tissue", y="Normalized counts", x="")+
+  scale_colour_viridis(discrete=TRUE)+
+  theme_bw() +
+  theme(axis.text.x = element_blank(), axis.ticks.x=element_blank()) +
+  facet_wrap(~plot_label, scales="free")
+
+##for all jhits
+##get gene counts
 annot_counts <- filter(counts_table, rn %in% crawford_blast_res$`#gene_id`)
 ##melt for plotting
 plot_annots_counts <- annot_counts %>% gather(colnames(annot_counts)[2:22], key="sample_name", value="normalized_counts")
@@ -59,30 +128,4 @@ ggplot(plotting_counts_crawford_hits) +
   theme_bw() +
   theme(axis.text.x = element_blank(), axis.ticks.x=element_blank()) +
   facet_wrap(~plot_label, scales="free")
-
-##for best hits##
-counts_table <- data.table(counts(mh_dds_lrt, normalized=TRUE), keep.rownames = TRUE)
-best_annot_counts <- filter(counts_table, rn %in% min_evalues_annots$`#gene_id.x`)
-##melt for plotting
-plot_annots_counts <- annot_counts %>% gather(colnames(annot_counts)[2:22], key="sample_name", value="normalized_counts")
-##sample group information
-sample_table <- fread("data/sample_table.csv")
-sample_table$group <- paste(sample_table$tissue)
-name_vs_group <- sample_table[,c(1,2)]
-plotting_counts <- inner_join(plot_annots_counts, name_vs_group)
-group_order <- c("Head", "Thorax", "Abdomen", "Ovaries", "Venom", "Pupa")
-plotting_counts$group <- factor(plotting_counts$tissue, levels=group_order)
-##merge with crawford gene annot
-min_evalues_annots$label <- tstrsplit(min_evalues_annots$Crawford_seq, "hyperodae_", keep=c(2))
-min_evalues_annots$label <- tstrsplit(min_evalues_annots$label, "_mRNA", keep=c(1))
-gene_to_crawford <- min_evalues_annots[,c(14,32)]
-plotting_counts_crawford_hits <- merge(plotting_counts, gene_to_crawford, by.x="rn", by.y="#gene_id.x")
-##plot all annot DEGs using ggplot2
-ggplot(plotting_counts_crawford_hits) +
-  geom_point(aes(x = group, y = normalized_counts, colour=group)) +
-  labs(colour="Tissue", y="Normalized counts", x="")+
-  scale_colour_viridis(discrete=TRUE)+
-  theme_bw() +
-  theme(axis.text.x = element_blank(), axis.ticks.x=element_blank()) +
-  facet_wrap(~label, scales="free")
 

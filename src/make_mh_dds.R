@@ -11,7 +11,10 @@ quant_files <- list.files(path="output/mh_salmon/", pattern = "quant.sf", full.n
 names(quant_files) <- gsub(".*/(.+)_quant/.*", "\\1", quant_files)
 ##import the salmon quant files (tx2gene links transcript ID to Gene ID
 ##required for gene-level summarisation for methods that only provide transcript level estimates e.g. salmon)
-txi <- tximport(quant_files, type = "salmon", tx2gene = tx2gene, dropInfReps=TRUE)
+txi <- tximport(quant_files, type = "salmon", tx2gene = tx2gene, dropInfReps=TRUE, abundanceCol="TPM")
+txi_abundance <- data.table(txi$abundance, keep.rownames=TRUE)
+fwrite(txi_abundance, "output/deseq2/salmon_TPM.csv")
+
 ##Import table describing samples
 sample_data <- fread("data/sample_table.csv", header=TRUE)
 setkey(sample_data, sample_name)

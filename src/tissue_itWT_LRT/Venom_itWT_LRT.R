@@ -2,6 +2,7 @@ library(data.table)
 library(DESeq2)
 library(pheatmap)
 library(VennDiagram)
+library(clusterProfiler)
 
 mh_itWT_dds <- readRDS("output/deseq2/tissue_itWT_LRT/mh_itWT.rds")
 
@@ -80,7 +81,6 @@ ordered_res_group_table <- data.table(data.frame(ordered_res_group), keep.rownam
 lrt_sig_res_group_table <- subset(ordered_res_group_table, padj < 0.05)
 saveRDS(mh_dds_lrt, "output/deseq2/tissue_itWT_LRT/venom/venom_LRT_dds.rds")
 
-
 #########################
 ## overlap WT and LRT  ##
 #########################
@@ -92,9 +92,6 @@ LRT_venom_degs <- subset(lrt_sig_res_group_table, rn %in% venom_specific_DEGs)
 LRT_venom_degs_annots <- merge(LRT_venom_degs, trinotate, by.x="rn", by.y="#gene_id", all.x=TRUE)
 LRT_venom_degs_annots_blast <- merge(LRT_venom_degs_annots, unann_blast_res, by="transcript_id", all.x=TRUE)
 fwrite(LRT_venom_degs_annots_blast, "output/deseq2/tissue_itWT_LRT/venom/venom_sp_LRT_annots.csv")
-
-##is signal peptide significantly enriched in venom DEGs?
-
 
 ##annotations seem to be repeated quite a lot?
 LRT_venom_degs_annots_blast$blastx <- tstrsplit(LRT_venom_degs_annots_blast$sprot_Top_BLASTX_hit, "^", fixed=TRUE, keep=c(1))
@@ -112,6 +109,22 @@ grid.newpage()
 grid.draw(vd_ven)
 
 plotCounts(mh_dds_lrt, "TRINITY_DN25775_c0_g2", intgroup=("Tissue"))
+
+##############
+## DEG TPMs ##
+##############
+
+salmon_tpm <- fread("output/deseq2/salmon_TPM.csv")
+summary_tpm <- data.table()
+summary_tpm$rn <- salmon_tpm$rn
+summary_tpm$venom_TPM <- rowMeans(salmon_tpm[,c("Mh_venom1", "Mh_venom2")], na.rm=TRUE)
+summary_tpm$ovary_TPM <- rowMeans(salmon_tpm[,c("Mh_ovary1", "Mh_ovary2", "Mh_ovary3")], na.rm=TRUE)
+summary_tpm$pupa_TPM <- rowMeans(salmon_tpm[,c("Mh_pupa1", "Mh_pupa2", "Mh_pupa3")], na.rm=TRUE)
+summary_tpm$rest_TPM <- rowMeans(salmon_tpm[,!c("rn", "Mh_venom1", "Mh_venom2", "Mh_pupa1", "Mh_pupa2", "Mh_pupa3", "Mh_ovary1", "Mh_ovary2", "Mh_ovary3")], na.rm=TRUE)
+##merge with annotation table
+LRT_venom_degs_annots_blast <- fread("output/deseq2/tissue_itWT_LRT/venom/venom_sp_LRT_annots.csv")
+annots_TPM <- merge(LRT_venom_degs_annots_blast, summary_tpm, by="rn")
+fwrite(annots_TPM, "output/deseq2/tissue_itWT_LRT/venom/DEGs_annots_TPM.csv")
 
 #############
 ## heatmap ##

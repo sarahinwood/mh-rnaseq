@@ -78,6 +78,7 @@ ordered_res_group <- res_group[order(res_group$padj),]
 ##Make data table and write to output
 ordered_res_group_table <- data.table(data.frame(ordered_res_group), keep.rownames = TRUE)
 lrt_sig_res_group_table <- subset(ordered_res_group_table, padj < 0.05)
+fwrite(lrt_sig_res_group_table, "output/deseq2/tissue_itWT_LRT/ovary/sig_ovary_lrt.csv")
 saveRDS(mh_dds_lrt, "output/deseq2/tissue_itWT_LRT/ovary/ovary_LRT_dds.rds")
 
 #########################
