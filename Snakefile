@@ -25,15 +25,82 @@ rule target:
     input:
      expand('output/mh_salmon/{sample}_quant/quant.sf', sample=all_samples),
      'output/multiqc/multiqc_report.html',
-     expand('output/deseq2/tissue_itWT_LRT/{tissue}/{tissue}_GO_enrichment.pdf', tissue=["head", "abdo", "thorax", "venom"]), ##ovary has no enriched terms so R script fails
-     expand('output/deseq2/tissue_itWT_LRT/{tissue}/{tissue}_PFAM_enrichment.pdf',  tissue=["head", "abdo", "thorax", "venom", "ovary"])
+     #expand('output/deseq2/tissue_itWT_LRT/{tissue}/{tissue}_GO_enrichment.pdf', tissue=["head", "abdo", "thorax", "venom"]), ##ovary has no enriched terms so R script fails
+     #expand('output/deseq2/tissue_itWT_LRT/{tissue}/{tissue}_PFAM_enrichment.pdf',  tissue=["head", "abdo", "thorax", "venom", "ovary"]),
      #'output/deseq2/tissue_LRT/unann_degs/interaction_nr_blastx.outfmt6',
      #'output/blast/viral_genes/blastn.outfmt6',
-     #'output/blast/crawford_venom/blastn.outfmt6'
+     #'output/blast/crawford_venom/blastn.outfmt6',
+     'output/blast/crawford_venom/crawford_transcripts.outfmt6',
+     'output/blast/venom_trinotate_signalp/venom_signalp_nr_blastx.outfmt6',
+     'output/deseq2/MhV_LRT/MhV_degs.outfmt6'
 
-#######################################
-## blast seq.s against transcriptome ##
-#######################################
+## blast venom degs signalp with Trinotate for nr hits ##
+rule trinotate_signalp_venom_blastx:
+    input:
+        unann_deg_transcripts = 'output/blast/venom_trinotate_signalp/transcripts.fasta'
+    output:
+        blastx_res = 'output/blast/venom_trinotate_signalp/venom_signalp_nr_blastx.outfmt6'
+    params:
+        blast_db = 'bin/blast_db/nr/nr'
+    threads:
+        50
+    singularity:
+        blast_container
+    log:
+        'output/logs/trinotate_signalp_venom_blastx.log'
+    shell:
+        'blastx '
+        '-query {input.unann_deg_transcripts} '
+        '-db {params.blast_db} '
+        '-num_threads {threads} '
+        '-evalue 1e-05 '
+        '-outfmt "6 std salltitles" > {output.blastx_res} '
+        '2> {log}'
+
+rule filter_trinotate_signalp_venom:
+    input:
+        mh_transcriptome = 'data/mh-transcriptome/output/trinity_filtered_isoforms/isoforms_by_length.fasta',
+        transcript_ids = 'output/blast/venom_trinotate_signalp/venom_signal_peptide_trinotate_ids.txt'
+    output:
+        transcripts = 'output/blast/venom_trinotate_signalp/transcripts.fasta'
+    singularity:
+        bbduk_container
+    log:
+        'output/logs/filter_trinotate_signalp_venom.log'
+    shell:
+        'filterbyname.sh '
+        'in={input.mh_transcriptome} '
+        'include=t '
+        'names={input.transcript_ids} '
+        'substring=name '
+        'out={output.transcripts} '
+        '&> {log}'
+
+##########################################
+## blast crawford against transcriptome ##
+##########################################
+
+rule nr_blast_crawford_transcripts:
+    input:
+        'output/blast/crawford_venom/crawford_transcripts.fasta'
+    output:
+        blastx_res = 'output/blast/crawford_venom/crawford_transcripts.outfmt6'
+    params:
+        blast_db = 'bin/blast_db/nr/nr'
+    threads:
+        50
+    singularity:
+        blast_container
+    log:
+        'output/logs/unann_degs_blastx.log'
+    shell:
+        'blastx '
+        '-query {input} '
+        '-db {params.blast_db} '
+        '-num_threads {threads} '
+        '-evalue 1e-05 '
+        '-outfmt "6 std salltitles" > {output.blastx_res} '
+        '2> {log}'
 
 ##where are venom genes expressed?
 rule blast_crawford_seq:
@@ -56,6 +123,10 @@ rule blast_crawford_seq:
         '-evalue 1e-05 '
         '-outfmt "6 std salltitles" > {output.blast_res} '
         '2>{log}' 
+
+####################
+## DEG enrichment ##
+####################
 
 rule tissue_specific_PFAM_enrichment:
     input:
@@ -86,6 +157,47 @@ rule tissue_specific_GO_enrichment:
 #############################
 ## blast unann tissue DEGs ##
 #############################
+
+rule MhV_degs_blastx:
+    input:
+        unann_deg_transcripts = 'output/deseq2/MhV_LRT/MhV_degs.fasta'
+    output:
+        blastx_res = 'output/deseq2/MhV_LRT/MhV_degs.outfmt6'
+    params:
+        blast_db = 'bin/blast_db/nr/nr'
+    threads:
+        50
+    singularity:
+        blast_container
+    log:
+        'output/logs/MhV_degs_blastx.log'
+    shell:
+        'blastx '
+        '-query {input.unann_deg_transcripts} '
+        '-db {params.blast_db} '
+        '-num_threads {threads} '
+        '-evalue 1e-05 '
+        '-outfmt "6 std salltitles" > {output.blastx_res} '
+        '2> {log}'
+
+rule filter_MhV_DEGs:
+    input:
+        mh_transcriptome = 'data/mh-transcriptome/output/trinity_filtered_isoforms/isoforms_by_length.fasta',
+        transcript_ids = 'output/deseq2/MhV_LRT/MhV_degs.txt'
+    output:
+        unann_deg_transcripts = 'output/deseq2/MhV_LRT/MhV_degs.fasta'
+    singularity:
+        bbduk_container
+    log:
+        'output/logs/filter_MhV_DEGs.log'
+    shell:
+        'filterbyname.sh '
+        'in={input.mh_transcriptome} '
+        'include=t '
+        'names={input.transcript_ids} '
+        'substring=name '
+        'out={output.unann_deg_transcripts} '
+        '&> {log}'   
 
 rule unann_degs_blastx:
     input:

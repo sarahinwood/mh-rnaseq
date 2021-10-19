@@ -2,6 +2,7 @@ library(data.table)
 library(tidyverse)
 library(dplyr)
 library(pheatmap)
+library(viridis)
 
 trinotate <- fread("data/mh-transcriptome/output/trinotate/sorted/longest_isoform_annots.csv")
 
@@ -14,6 +15,8 @@ odorant_receptor_bx <- subset(odorant, grepl("receptor", sprot_Top_BLASTX_hit, i
 odorant_receptor_bp <- subset(odorant, grepl("receptor", sprot_Top_BLASTP_hit, ignore.case=TRUE))
 odorant_receptor <- full_join(odorant_receptor_bx, odorant_receptor_bp)
 odorant_receptor$Label <- paste("OR")
+fwrite(odorant_receptor, "output/deseq2/tissue_itWT_LRT/head/chemosensory/ORs.csv")
+
 
 ##OBPs
 odorant_binding_bx <- subset(odorant, grepl("binding", sprot_Top_BLASTX_hit, ignore.case=TRUE))
@@ -22,8 +25,8 @@ odorant_binding <- full_join(odorant_binding_bx, odorant_binding_bp)
 odorant_binding$Label <- paste("OBP")
 
 ##GRs
-gustatory_receptor_bx <- subset(trinotate, grepl("gustatory receptor", sprot_Top_BLASTX_hit, ignore.case=TRUE))
-gustatory_receptor_bp <- subset(trinotate, grepl("gustatory receptor", sprot_Top_BLASTP_hit, ignore.case=TRUE))
+gustatory_receptor_bx <- subset(trinotate, grepl("gustatory receptor|gustatory and pheromone receptor", sprot_Top_BLASTX_hit, ignore.case=TRUE))
+gustatory_receptor_bp <- subset(trinotate, grepl("gustatory receptor|gustatory and pheromone receptor", sprot_Top_BLASTP_hit, ignore.case=TRUE))
 gustatory_receptor <- full_join(gustatory_receptor_bx, gustatory_receptor_bp)
 gustatory_receptor$Label <- paste("GR")
 
