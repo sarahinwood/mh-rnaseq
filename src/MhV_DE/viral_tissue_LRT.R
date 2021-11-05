@@ -17,12 +17,13 @@ mh_dds <- estimateSizeFactors(mh_dds)
 mh_dds_viral <- mh_dds[viral_genes,]
 mh_dds_viral <- mh_dds_viral[,mh_dds$stage=="adult"]
 ##re-level tissue factor
+mh_dds_viral$Flowcell <- factor(mh_dds_viral$flowcell)
 mh_dds_viral$Tissue <- factor(mh_dds_viral$tissue, levels=c("Head", "Thorax", "Abdomen", "Ovaries", "Venom"))
 mh_dds_viral$Rep <- factor(mh_dds_viral$rep)
 
-design(mh_dds_viral) <- ~Rep+Tissue
-mh_dds_viral <- DESeq(mh_dds_viral, test="LRT", reduced=~Rep)
-saveRDS(mh_dds_viral, "output/deseq2/MhV_LRT/mh_tissue_LRT.rds")
+design(mh_dds_viral) <- ~Flowcell+Rep+Tissue
+mh_dds_viral <- DESeq(mh_dds_viral, test="LRT", reduced=~Flowcell+Rep)
+#saveRDS(mh_dds_viral, "output/deseq2/MhV_LRT/mh_tissue_LRT.rds")
 
 res_group <- results(mh_dds_viral, alpha = 0.05)
 summary(res_group)
@@ -31,8 +32,8 @@ ordered_res_group <- res_group[order(res_group$padj),]
 ##Make data table and write to output
 ordered_res_group_table <- data.table(data.frame(ordered_res_group), keep.rownames = TRUE)
 ordered_sig_res_group_table <- subset(ordered_res_group_table, padj < 0.05)
-fwrite(ordered_sig_res_group_table, "output/deseq2/MhV_LRT/tissue_sig_degs.csv")
-fwrite(list(unique(sig_annots$rn)), "output/deseq2/MhV_LRT/tissue_degs.txt")
+#fwrite(ordered_sig_res_group_table, "output/deseq2/MhV_LRT/tissue_sig_degs.csv")
+#fwrite(list(unique(sig_annots$rn)), "output/deseq2/MhV_LRT/tissue_degs.txt")
 
 trinotate <- fread("data/mh-transcriptome/output/trinotate/sorted/longest_isoform_annots.csv", na.strings = ".")
 sig_trinotate <- merge(ordered_sig_res_group_table, trinotate, by.x="rn", by.y="#gene_id")

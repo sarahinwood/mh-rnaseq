@@ -16,10 +16,11 @@ mh_dds <- estimateSizeFactors(mh_dds)
 ##keep only viral genes
 mh_dds_viral <- mh_dds[viral_genes,]
 ##re-level factor
+mh_dds_viral$Flowcell <- factor(mh_dds_viral$flowcell)
 mh_dds_viral$Stage <- factor(mh_dds_viral$stage, levels=c("pupa", "adult"))
 mh_dds_viral$Rep <- factor(mh_dds_viral$rep)
 
-design(mh_dds_viral) <- ~Rep+Stage
+design(mh_dds_viral) <- ~Flowcell+Rep+Stage
 mh_dds_viral <- DESeq(mh_dds_viral)
 saveRDS(mh_dds_viral, "output/deseq2/MhV_LRT/mh_stage_LRT.rds")
 
