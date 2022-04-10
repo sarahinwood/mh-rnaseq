@@ -2,6 +2,7 @@ library(data.table)
 library(tidyverse)
 library(pheatmap)
 library(viridis)
+library(dendsort)
 
 ##don't miss any by using length-filtered
 trinotate_report <- fread("data/mh-transcriptome/output/trinotate/sorted/longest_isoform_annots.csv")
@@ -15,6 +16,7 @@ trinotate_meiosis <- full_join(meiosis_bx, meiosis_bp)
 ##remove non-meiosis genes - RMND1 not one of the specifically mentioned genes
 trinotate_meiosis_sp <- subset(trinotate_meiosis, !grepl("PHOP1|RMND1", sprot_Top_BLASTX_hit))
 trinotate_meiosis_sp$gene <- tstrsplit(trinotate_meiosis_sp$sprot_Top_BLASTX_hit, "_", keep=c(1))
+fwrite(trinotate_meiosis_sp, "output/deseq2/tissue_itWT_LRT/ovary/meiosis_genes.csv")
 
 ##John found MSH4, MSH5, HOP2 and MND1 conserved at least in microctonus - find all of these
 ##lrt results for these genes
@@ -57,12 +59,16 @@ sample_to_tissue <- sample_to_tissue %>% remove_rownames %>% column_to_rownames(
 sample_to_tissue <- as.data.frame(colData(mh_dds_lrt)[,c("Tissue", "sample_name")])
 sample_to_tissue <- sample_to_tissue %>% remove_rownames %>% column_to_rownames(var="sample_name")
 
-tissue_colours <- list(Tissue = c(Head="#440154FF", Thorax="#3B528BFF", Abdomen="#21908CFF", Ovaries="#5DC863FF", Venom="#FDE725FF"))
+tissue_colours <- list(Tissue = c(Head="#231151FF", Thorax="#5F187FFF", Abdomen="#982D80FF", Ovaries="#D3436EFF", Venom="#F8765CFF"))
 ##plot
-##not clustered by sample
-pheatmap(mh_vst_degs_plot, cluster_rows=TRUE, cluster_cols=TRUE, show_rownames=TRUE,
+##clustered by sample
+col_dend <- dendsort(hclust(dist(t(mh_vst_degs_plot))))
+row_dend <- dendsort(hclust(dist(mh_vst_degs_plot)))
+
+pheatmap(mh_vst_degs_plot, cluster_rows=T, cluster_cols=T, show_rownames=TRUE,
          annotation_col=sample_to_tissue, annotation_colors=tissue_colours, annotation_names_col=FALSE,
-         show_colnames = FALSE, border_color=NA, color=viridis(50))
+         show_colnames = FALSE, border_color=NA, color=viridis(50), cutree_cols = 2)
+
 
 #open PDF in inkscape and change gene labels to remove trinity IDs, bold sig DEGs
-
+##dendsort could be used to sort dendrogram? but may be not sorted by longest branch ue to sorting off expression patterns

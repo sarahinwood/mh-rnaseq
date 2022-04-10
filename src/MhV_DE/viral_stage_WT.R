@@ -14,17 +14,17 @@ mh_dds <- readRDS("output/deseq2/mh_dds.rds")
 mh_dds <- estimateSizeFactors(mh_dds)
 
 ##keep only viral genes
-mh_dds_viral <- mh_dds[viral_genes,]
+mh_dds_viral_stage <- mh_dds[viral_genes,]
 ##re-level factor
-mh_dds_viral$Flowcell <- factor(mh_dds_viral$flowcell)
-mh_dds_viral$Stage <- factor(mh_dds_viral$stage, levels=c("pupa", "adult"))
-mh_dds_viral$Rep <- factor(mh_dds_viral$rep)
+mh_dds_viral_stage$Flowcell <- factor(mh_dds_viral_stage$flowcell)
+mh_dds_viral_stage$Stage <- factor(mh_dds_viral_stage$stage, levels=c("pupa", "adult"))
+mh_dds_viral_stage$Rep <- factor(mh_dds_viral_stage$rep)
 
-design(mh_dds_viral) <- ~Flowcell+Rep+Stage
-mh_dds_viral <- DESeq(mh_dds_viral)
-saveRDS(mh_dds_viral, "output/deseq2/MhV_LRT/mh_stage_LRT.rds")
+design(mh_dds_viral_stage) <- ~Flowcell+Rep+Stage
+mh_dds_viral_stage <- DESeq(mh_dds_viral_stage)
+saveRDS(mh_dds_viral_stage, "output/deseq2/MhV_LRT/mh_stage_LRT.rds")
 
-res_group <- results(mh_dds_viral, alpha = 0.05)
+res_group <- results(mh_dds_viral_stage, alpha = 0.05)
 summary(res_group)
 ##Order based of padj
 ordered_res_group <- res_group[order(res_group$padj),]
@@ -32,7 +32,6 @@ ordered_res_group <- res_group[order(res_group$padj),]
 ordered_res_group_table <- data.table(data.frame(ordered_res_group), keep.rownames = TRUE)
 ordered_sig_res_group_table <- subset(ordered_res_group_table, padj < 0.05)
 fwrite(ordered_sig_res_group_table, "output/deseq2/MhV_LRT/stage_sig_degs.csv")
-fwrite(list(unique(sig_annots$rn)), "output/deseq2/MhV_LRT/stage_degs.txt")
 
 trinotate <- fread("data/mh-transcriptome/output/trinotate/sorted/longest_isoform_annots.csv", na.strings = ".")
 sig_trinotate <- merge(ordered_sig_res_group_table, trinotate, by.x="rn", by.y="#gene_id")
@@ -41,11 +40,11 @@ sig_trinotate <- merge(ordered_sig_res_group_table, trinotate, by.x="rn", by.y="
 ## heatmap ##
 #############
 
-mh_dds_viral <- readRDS("output/deseq2/MhV_LRT/mh_stage_LRT.rds")
+mh_dds_viral_stage <- readRDS("output/deseq2/MhV_LRT/mh_stage_LRT.rds")
 ordered_sig_res_group_table <- fread("output/deseq2/MhV_LRT/stage_sig_degs.csv")
 
 ##vst transform
-mh_vst <- varianceStabilizingTransformation(mh_dds_viral, blind=TRUE)
+mh_vst <- varianceStabilizingTransformation(mh_dds_viral_stage, blind=TRUE)
 mh_vst_assay_dt <- data.table(assay(mh_vst), keep.rownames=TRUE)
 ##subset for DEGs
 mh_vst_degs <- subset(mh_vst_assay_dt, rn %in% ordered_sig_res_group_table$rn)
@@ -55,10 +54,10 @@ mh_vst_degs <- mh_vst_degs %>% remove_rownames %>% column_to_rownames(var="rn")
 mh_vst_degs_plot <- mh_vst_degs[,c(10,11,12,4,5,6,19,13,14,15,1,2,3,18,7,8,9,20,21,16,17)]
 
 ##get tissue label info
-sample_to_tissue <- data.table(data.frame(colData(mh_dds_viral)[,c("tissue", "sample_name")]))
+sample_to_tissue <- data.table(data.frame(colData(mh_dds_viral_stage)[,c("tissue", "sample_name")]))
 sample_to_tissue <- sample_to_tissue %>% remove_rownames %>% column_to_rownames(var="sample_name")
 ##for plot label
-sample_to_tissue <- as.data.frame(colData(mh_dds_viral)[,c("tissue", "sample_name")])
+sample_to_tissue <- as.data.frame(colData(mh_dds_viral_stage)[,c("tissue", "sample_name")])
 sample_to_tissue <- sample_to_tissue %>% remove_rownames %>% column_to_rownames(var="sample_name")
 
 tissue_colours <- list(tissue = c(Pupa="#440154FF", Head="#414487FF", Thorax="#2A788EFF", Abdomen="#22A884FF", Ovaries="#7AD151FF", Venom="#FDE725FF"))

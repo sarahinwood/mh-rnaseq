@@ -2,6 +2,7 @@ library(data.table)
 library(DESeq2)
 library(VennDiagram)
 library(pheatmap)
+library(viridis)
 
 mh_itWT_dds <- readRDS("output/deseq2/tissue_itWT_LRT/mh_itWT.rds")
 
@@ -46,7 +47,7 @@ ordered_venom_ov_table <- data.table(data.frame(ordered_venom_ov), keep.rownames
 venom <- subset(ordered_venom_ov_table, padj < 0.05)
 
 ################################
-## overlap for venom-specific ##
+## overlap for ovary-specific ##
 ################################
 
 ##venn diagram

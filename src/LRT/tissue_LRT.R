@@ -1,7 +1,6 @@
 library(data.table)
 library(DESeq2)
 library(VennDiagram)
-library(VennDiagram)
 
 mh_dds <- readRDS("output/deseq2/mh_dds.rds")
 

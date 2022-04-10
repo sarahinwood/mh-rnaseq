@@ -38,7 +38,7 @@ fwrite(venom_intersect_crawford_blastdt, "output/blast/crawford_venom/venom_tran
 min_evalues_annots$label <- tstrsplit(min_evalues_annots$Crawford_seq, "protein_", keep=c(2))
 min_evalues_annots$label <- tstrsplit(min_evalues_annots$label, "_mRNA", keep=c(1))
 min_evalues_annots$plot_label <- paste("Venom protein", min_evalues_annots$label, sep=" ")
-id_venom <- min_evalues_annots[,c(14,31)]
+id_venom <- min_evalues_annots[,c(14,33)]
 
 mh_dds_lrt <- readRDS("output/deseq2/stage_WT/mh_stage_WT.rds")
 ##vst transform
@@ -48,22 +48,23 @@ mh_vst_assay_dt <- data.table(assay(mh_vst), keep.rownames=TRUE)
 ##subset for genes of interest
 mh_vst_degs <- subset(mh_vst_assay_dt, rn %in% id_venom$`#gene_id`)
 ##merge with label
-mh_vst_degs_label <- merge(mh_vst_degs, id_venom, by.x="rn", by.y="#gene_id")
+mh_vst_degs_label <- merge(mh_vst_degs, id_venom, by.x="rn", by.y="#gene_id.x")
 ##remove Trinity ID column
 mh_vst_degs_label <- mh_vst_degs_label[,-c(1)]
 setorder(mh_vst_degs_label, plot_label)
 ##turn first row back to row name
 mh_vst_degs_label <- mh_vst_degs_label %>% remove_rownames %>% column_to_rownames(var="plot_label")
 ##reorder for plot
-mh_vst_degs_plot <- mh_vst_degs_label[,c(16,17,7,8,9,20,21,4,5,6,19,13,14,15,1,2,3,18,10,11,12)]
+mh_vst_degs_plot <- mh_vst_degs_label[,c(16,17,20,8,7,9,21,4,5,6,19,13,14,15,1,2,3,18,10,11,12)]
+mh_vst_degs_plot <- mh_vst_degs_plot[c(1,3,4,5,6,7,8,2),]
 
 ##get tissue label info
 sample_to_tissue <- data.table(data.frame(colData(mh_dds_lrt)[,c("tissue", "sample_name")]))
 sample_to_tissue <- sample_to_tissue %>% remove_rownames %>% column_to_rownames(var="sample_name")
-tissue_colours <- list(tissue = c(Head="#440154FF", Thorax="#414487FF", Abdomen="#2A788EFF", Ovaries="#22A884FF", Venom="#7AD151FF", Pupa="#FDE725FF"))
+tissue_colours <- list(tissue = c(Head="#231151FF", Thorax="#5F187FFF", Abdomen="#982D80FF", Ovaries="#D3436EFF", Venom="#F8765CFF", Pupa="#FEBA80FF"))
 ##plot
 ##not clustered by sample
-pheatmap(mh_vst_degs_plot, cluster_rows=FALSE, cluster_cols=FALSE, show_rownames=TRUE,
+pheatmap(mh_vst_degs_plot, cluster_rows=F, cluster_cols=F, show_rownames=TRUE,
          annotation_col=sample_to_tissue, annotation_colors=tissue_colours, annotation_names_col=FALSE,
          show_colnames = FALSE, border_color=NA, color=viridis(50))
 

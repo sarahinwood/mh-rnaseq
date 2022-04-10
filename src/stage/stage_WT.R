@@ -15,7 +15,7 @@ design(mh_dds) <- ~Flowcell+Rep+Stage
 mh_dds <- DESeq(mh_dds)
 saveRDS(mh_dds, "output/deseq2/stage_WT/mh_stage_WT.rds")
 
-mh_dds <- readRDS("output/deseq2/stage_WT/mh_stage_WT.rds")
+#mh_dds <- readRDS("output/deseq2/stage_WT/mh_stage_WT.rds")
 res_group <- results(mh_dds, alpha = 0.05, lfcThreshold = 1)
 summary(res_group)
 ##Order based of padj
