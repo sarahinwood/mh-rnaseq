@@ -1,7 +1,20 @@
 library(data.table)
+library(DESeq2)
 library(VennDiagram)
 
-LRT_sig_degs <- fread("output/deseq2/tissue_LRT/sig_degs.csv")
+## LRT DEGs
+mh_dds_lrt <- readRDS("output/03_deseq2/tissue_itWT_LRT/Venom/Venom_LRT_dds.rds")
+res_group <- results(mh_dds_lrt, alpha = 0.05)
+## Make data table and write to output
+ordered_res_group_table <- data.table(data.frame(res_group), keep.rownames = TRUE)
+lrt_sig_res_group_table <- subset(ordered_res_group_table, padj < 0.05)
+
+## Viral DEGs
+fread("data/mh-transcriptome/")
+
+
+
+
 pupa_dds <- readRDS("output/deseq2/stage_WT/mh_stage_WT.rds")
 ##prodigal viral
 prodigal_viral_genes_blast <- fread("output/blast/viral_genes/viral_genes_best_hits.csv")

@@ -26,7 +26,10 @@ library(viridis)
 ###########
 
 ##DEG_list             
-tissue_DEG_file <- snakemake@input[["tissue_degs_file"]]
+tissue_DEG_file <- snakemake@input[["tissue_DEG_file"]]
+term_to_gene_file <- snakemake@input[["term_to_gene_file"]]
+term_to_name_file <- snakemake@input[["term_to_name_file"]]
+pfam_annot_table_file <- snakemake@input[["term_annot_table_file"]]
 
 ########
 # MAIN #
@@ -35,9 +38,9 @@ tissue_DEG_file <- snakemake@input[["tissue_degs_file"]]
 tissue_DEGs <- fread(tissue_DEG_file)
 
 ##GO annot tables
-pfam_to_gene <- fread("output/deseq2/pfam_annots/pfam_to_geneID.csv")
-pfam_to_name<- distinct(fread("output/deseq2/pfam_annots/pfam_to_domain_name.csv"))
-pfamannot_table <- fread("output/deseq2/pfam_annots/pfam_annots.csv")
+pfam_to_gene <- fread(term_to_gene_file)
+pfam_to_name<- distinct(fread(term_to_name_file))
+pfamannot_table <- fread(pfam_annot_table_file)
 pfamannot_table <- pfamannot_table[,c(1,2)]
 pfamannot_table <- distinct(pfamannot_table)
 
@@ -49,27 +52,8 @@ plot_results_dt <- merge(results_dt, pfamannot_table, by.x="ID", by.y="Pfam_ID",
 plot_results_dt$total_DEG_PFAMs <- tstrsplit(plot_results_dt$GeneRatio, "/", keep=c(2))
 plot_results_dt$total_DEG_PFAMs <- as.numeric(plot_results_dt$total_DEG_PFAMs)
 plot_results_dt$GeneRatio <- (plot_results_dt$Count/plot_results_dt$total_DEG_PFAMs)
+
 fwrite(plot_results_dt, snakemake@output[["enrichment_table"]])
-
-## GeneRatio - number of DEGs with that GO annot/total DEGs with GO annots - DEG list
-## BgRatio - total no. genes with that GO annot/total number of genes with GO annots - whole transcriptome
-## Q value?
-
-#####################
-## all in one plot ##
-#####################
-plot_results_dt$Description <- factor(plot_results_dt$Description, levels=(plot_results_dt$Description[order(plot_results_dt$GeneRatio, decreasing=TRUE)]))
-
-##plot
-pdf(snakemake@output[['PFAM_plot']], height=3, width=5.875)
-ggplot(plot_results_dt, aes(x=Description, y=GeneRatio)) +
-  geom_col(aes(fill="#440154FF"))+
-  labs(x="Pfam domain", y="GeneRatio", size="Leading\nedge size") +
-  coord_flip() +
-  scale_fill_viridis(discrete=TRUE)+
-  theme_bw()+
-  theme(legend.position = "none")
-dev.off()
 
 # write log
 sessionInfo()

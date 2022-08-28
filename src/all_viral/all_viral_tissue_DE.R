@@ -4,10 +4,10 @@ library(pheatmap)
 library(viridis)
 library(dendsort)
 
-viral_genes <- fread("data/mh-transcriptome/output/recip_blast/nr_blastx/viral_annots_plot.csv")
+viral_genes <- fread("data/mh-all-transcriptome/output/recip_blast/viral_nr_blastx/best_viral_hits_plot.csv")
 viral_genes$gene_id <- tstrsplit(viral_genes$transcript_id, "_i", keep=c(1))
 
-mh_dds <- readRDS("output/deseq2/mh_dds.rds")
+mh_dds <- readRDS("output/03_deseq2/mh_dds.rds")
 
 ########
 ## DE ##
@@ -26,7 +26,7 @@ mh_dds_lrt <- DESeq(mh_dds_lrt, test="LRT", reduced=~Flowcell+Rep)
 ##results
 res_group <- results(mh_dds_lrt, alpha = 0.05)
 summary(res_group)
-saveRDS(mh_dds_lrt, "output/deseq2/viral_LRT/viral_LRT_dds.rds")
+saveRDS(mh_dds_lrt, "output/03_deseq2/viral_LRT/viral_LRT_dds.rds")
 
 ##Order based of padj
 ordered_res_group <- res_group[order(res_group$padj),]
@@ -34,7 +34,7 @@ ordered_res_group <- res_group[order(res_group$padj),]
 ordered_res_group_table <- data.table(data.frame(ordered_res_group), keep.rownames = TRUE)
 lrt_sig_res_group_table <- subset(ordered_res_group_table, padj < 0.05)
 viral_degs <- merge(lrt_sig_res_group_table, viral_genes, by.x="rn", by.y="gene_id", all.x=T)
-fwrite(viral_degs, "output/deseq2/viral_LRT/viral_degs.csv")
+fwrite(viral_degs, "output/03_deseq2/viral_LRT/tissue_lrt_viral_degs.csv")
 
 #############
 ## heatmap ##

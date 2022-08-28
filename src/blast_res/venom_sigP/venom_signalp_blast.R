@@ -2,7 +2,7 @@ library(data.table)
 library(dplyr)
 library(tidyr)
 
-signalp_blast <- fread("output/blast/venom_trinotate_signalp/venom_signalp_nr_blastx.outfmt6")
+signalp_blast <- fread("output/04_blast/venom_trinotate_signalp/venom_signalp_nr_blastx.outfmt6")
 
 setnames(signalp_blast, old=c("V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8", "V9", "V10", "V11", "V12", "V13"),
          new=c("transcript_id", "hit", "%_identical_matches", "alignment_length", "no_mismatches", "no_gap_openings",
@@ -17,4 +17,8 @@ no_hypo <- subset(signalp_blast, !grepl("uncharacter|hypothetical|unnamed|unknow
 ##extract result with lowest evalue for each peptide, sorted by bit-value in case of e-value tie
 min_evalues <- no_hypo[,.SD[which.min(evalue)], by=transcript_id]
 ##write table
-fwrite(min_evalues, "output/blast/venom_trinotate_signalp/venom_trinotate_signalp_besthits.csv")
+fwrite(min_evalues, "output/04_blast/venom_trinotate_signalp/venom_trinotate_signalp_besthits.csv")
+
+venom_degs <- fread("output/03_deseq2/tissue_itWT_LRT/Venom/Venom_sp_LRT_all_annots.csv")
+all_res <- merge(venom_degs, min_evalues, by="transcript_id", all=T)
+fwrite(all_res, "output/03_deseq2/tissue_itWT_LRT/Venom/Venom_sp_LRT_sigp_blast.csv")

@@ -6,7 +6,7 @@ library(tidyr)
 library(dplyr)
 library(viridis)
 
-mh_itWT_dds <- readRDS("output/deseq2/viral_LRT/viral_itWT.rds")
+mh_itWT_dds <- readRDS("output/03_deseq2/viral_LRT/viral_itWT.rds")
 
 ###############################
 ## iterative pairwise comp.s ##

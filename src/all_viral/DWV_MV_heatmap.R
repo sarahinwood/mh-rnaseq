@@ -3,8 +3,8 @@ library(tidyverse)
 library(pheatmap)
 library(viridis)
 
-mh_dds <- readRDS("output/deseq2/mh_dds.rds")
-mv_dw_m_virus <- fread("data/mh-transcriptome/output/recip_blast/viral_nr_blastx/virus_blastn_best.csv")
+mh_dds <- readRDS("output/03_deseq2/mh_dds.rds")
+mv_dw_m_virus <- fread("data/mh-all-transcriptome/output/recip_blast/viral_nr_blastx/iflavirus_blastn_best.csv")
 mv_dw_m_virus$gene_id <- tstrsplit(mv_dw_m_virus$transcript_id, "_i", keep=c(1))
 
 #############

@@ -1,10 +1,34 @@
-library(tximport)
-library(data.table)
-library(DESeq2)
-library(EnhancedVolcano)
-library(VennDiagram)
+#!/usr/bin/env Rscript
 
-mh_dds <- readRDS("output/deseq2/mh_dds.rds")
+#######
+# LOG #
+#######
+
+log <- file(snakemake@log[[1]],
+            open = "wt")
+sink(log,
+     type = "message")
+sink(log,
+     append = TRUE,
+     type = "output")
+
+#############
+# LIBRARIES #
+#############
+
+library(DESeq2)
+
+###########
+# GLOBALS #
+###########
+
+mh_dds_file <- snakemake@input[["mh_dds_file"]]
+
+########
+# MAIN #
+########
+
+mh_dds <- readRDS(mh_dds_file)
 
 ##select only adult tissue samples - pupa samples will have all these tissues
 mh_dds_tissue <- mh_dds[,mh_dds$stage=="adult"]
@@ -15,6 +39,7 @@ mh_dds_tissue$Flowcell <- factor(mh_dds_tissue$flowcell)
 
 design(mh_dds_tissue) <- ~Flowcell+Rep+Tissue
 mh_dds_tissue <- DESeq(mh_dds_tissue)
-saveRDS(mh_dds_tissue, "output/deseq2/tissue_itWT_LRT/mh_itWT.rds")
+saveRDS(mh_dds_tissue, snakemake@output[["mh_itWT_dds"]])
 
-plotCounts(mh_dds_tissue, "TRINITY_DN1993_c0_g1", intgroup=("Tissue"))
+# write log
+sessionInfo()

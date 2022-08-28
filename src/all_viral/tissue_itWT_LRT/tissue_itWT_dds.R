@@ -2,9 +2,9 @@ library(tximport)
 library(data.table)
 library(DESeq2)
 
-mh_dds <- readRDS("output/deseq2/mh_dds.rds")
+mh_dds <- readRDS("output/03_deseq2/mh_dds.rds")
 
-viral_genes <- fread("data/mh-transcriptome/output/recip_blast/nr_blastx/viral_annots_plot.csv")
+viral_genes <- fread("data/mh-all-transcriptome/output/recip_blast/viral_nr_blastx/best_viral_hits_plot.csv")
 viral_genes$gene_id <- tstrsplit(viral_genes$transcript_id, "_i", keep=c(1))
 
 ##select only adult tissue samples and only viral genes
@@ -17,4 +17,4 @@ mh_dds_tissue$Flowcell <- factor(mh_dds_tissue$flowcell)
 
 design(mh_dds_tissue) <- ~Flowcell+Rep+Tissue
 mh_dds_tissue <- DESeq(mh_dds_tissue)
-saveRDS(mh_dds_tissue, "output/deseq2/viral_LRT/viral_itWT.rds")
+saveRDS(mh_dds_tissue, "output/03_deseq2/viral_LRT/viral_itWT.rds")

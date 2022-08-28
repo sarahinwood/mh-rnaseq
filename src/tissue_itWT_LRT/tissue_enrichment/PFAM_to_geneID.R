@@ -1,12 +1,41 @@
-library(data.table)
+#!/usr/bin/env Rscript
 
-trinotate_report <- fread("data/mh-transcriptome/output/trinotate/trinotate/trinotate_annotation_report.txt", na.strings=".")
+#######
+# LOG #
+#######
+
+log <- file(snakemake@log[[1]],
+            open = "wt")
+sink(log,
+     type = "message")
+sink(log,
+     append = TRUE,
+     type = "output")
+
+#############
+# LIBRARIES #
+#############
+
+library(data.table)
+library(tidyverse)
+
+###########
+# GLOBALS #
+###########
+
+trinotate_file <- snakemake@input[["trinotate_file"]]
+
+########
+# MAIN #
+########
+
+trinotate_report <- fread(trinotate_file, na.strings=".")
 ##fairly sure we always used Pfam GO annots for this
 pfam_annot_list<-data.table(trinotate_report[,unique(unlist(strsplit(Pfam, "`")))])
 pfam_annot_table <- pfam_annot_list[,tstrsplit(V1, "^", fixed=TRUE)]
 pfam_annot_table <- pfam_annot_table[,c(1,2,3)]
 pfam_annot_table<-setnames(pfam_annot_table, old=c("V1", "V2", "V3"), new=c("Pfam_ID", "domain", "name"))
-fwrite(distinct(pfam_annot_table), "output/deseq2/pfam_annots/pfam_annots.csv")
+fwrite(pfam_annot_table, snakemake@output[["term_annot_table"]])
 
 ##function to extract GO terms from annotations in transcriptome (get all unique GO terms for each gene id) --> could look at other functional annot if I want to
 EXTRACT_pfam_TERMS <- function(x, trinotate_report){
@@ -23,6 +52,6 @@ pfam_term_table <- rbindlist(pfam_term_list)
 ##table of GO term to gene name
 term_to_gene <- pfam_term_table[,c(2,1)]
 term_to_name <- pfam_annot_table[,c(1,3)]
-fwrite(distinct(term_to_gene), "output/deseq2/pfam_annots/pfam_to_geneID.csv")
-fwrite(distinct(term_to_name), "output/deseq2/pfam_annots/pfam_to_domain_name.csv")
+fwrite(distinct(term_to_gene), snakemake@output[["term_to_gene"]])
+fwrite(distinct(term_to_name), snakemake@output[["term_to_name"]])
 

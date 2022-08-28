@@ -26,7 +26,7 @@ ordered_sig_res_group_table <- subset(ordered_res_group_table, padj < 0.05)
 fwrite(ordered_res_group_table, "output/deseq2/tissue_LRT/all_res.csv")
 fwrite(ordered_sig_res_group_table, "output/deseq2/tissue_LRT/sig_degs.csv")
 
-plotCounts(mh_dds_lrt, "TRINITY_DN28774_c0_g1", intgroup=("Tissue"))
+plotCounts(mh_dds_lrt, "TRINITY_DN8602_c0_g1", intgroup=("Tissue"))
 
 ##compare DEGs found with all samples vs only new samples
 all_ordered_sig_res_group_table <- ordered_sig_res_group_table
