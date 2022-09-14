@@ -38,10 +38,10 @@ trinotate <- fread(trinotate_file, na.strings = ".")
 #viral_annots <- fread("data/mh-transcriptome/output/recip_blast/nr_blastx/viral_annots_plot.csv")
 
 mh_dds$Stage <- factor(mh_dds$stage, levels=c("pupa", "adult"))
-mh_dds$Rep <- factor(mh_dds$rep)
+mh_dds$Batch <- factor(mh_dds$batch)
 mh_dds$Flowcell <- factor(mh_dds$flowcell)
 
-design(mh_dds) <- ~Flowcell+Rep+Stage
+design(mh_dds) <- ~Flowcell+Batch+Stage
 mh_dds <- DESeq(mh_dds)
 saveRDS(mh_dds, snakemake@output[["stage_dds"]])
 
@@ -73,11 +73,11 @@ fwrite(sig_blast, "output/03_deseq2/stage_WT/sig_w_blast_annots.csv")
 # viral_degs <- merge(ordered_sig_res_group_table, viral_annots, by="rn")
 
 ## tissue specific overlap?
-ovary <- fread("output/03_deseq2/tissue_itWT_LRT/Ovary/Ovary_sp_LRT_annots.csv")
-venom <- fread("output/03_deseq2/tissue_itWT_LRT/Venom/Venom_sp_LRT_annots.csv")
-head <- fread("output/03_deseq2/tissue_itWT_LRT/Head/Head_sp_LRT_annots.csv")
-thorax <- fread("output/03_deseq2/tissue_itWT_LRT/Thorax/Thorax_sp_LRT_annots.csv")
-abdo <- fread("output/03_deseq2/tissue_itWT_LRT/Abdomen/Abdomen_sp_LRT_annots.csv")
+ovary <- fread("output/03_deseq2/tissue_itWT/Ovary/Ovary_sp_annots.csv")
+venom <- fread("output/03_deseq2/tissue_itWT/Venom/Venom_sp_annots.csv")
+head <- fread("output/03_deseq2/tissue_itWT/Head/Head_sp_annots.csv")
+thorax <- fread("output/03_deseq2/tissue_itWT/Thorax/Thorax_sp_annots.csv")
+abdo <- fread("output/03_deseq2/tissue_itWT/Abdomen/Abdomen_sp_annots.csv")
 
 adult <- subset(ordered_sig_res_group_table, log2FoldChange>0)
 pupae <- subset(ordered_sig_res_group_table, log2FoldChange<0)

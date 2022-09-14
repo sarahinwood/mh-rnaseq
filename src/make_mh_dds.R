@@ -53,9 +53,5 @@ mh_dds <- DESeqDataSetFromTximport(txi, colData = sample_data[colnames(txi$count
 ##save dds object
 saveRDS(mh_dds, snakemake@output[["mh_dds"]])
 
-mh_adult_dds <- mh_dds_lrt <- mh_dds[,mh_dds$stage=="adult"]
-saveRDS(mh_adult_dds, snakemake@output[["mh_adult_dds"]])
-
 # write log
 sessionInfo()
-

@@ -24,29 +24,27 @@ bioconductor_container = 'library://sinwood/bioconductor/bioconductor_3.12:0.0.1
 
 
 #########
-# RULES #
+# RULES # doesn't need to re-run meiosis sp
 #########
 
 rule target:
     input:
-     ### QC ###
-     expand('output/01_mh_salmon/{sample}_quant/quant.sf', sample=all_samples),
+        ### QC ###
      'output/02_multiqc/multiqc_report.html',
-     ### DESeq2 analysis ###
+        ### DESeq2 analysis ###
      'output/03_deseq2/PCA/PCA_tissue.pdf',
-     'output/04_blast/unann_degs/blast_best_res.csv',
-     expand('output/03_deseq2/tissue_itWT_LRT/{tissue}/{tissue}_sp_LRT_all_annots.csv', tissue=all_tissues),
-     'output/03_deseq2/stage_WT/sig_annots.csv',
-     expand('output/03_deseq2/tissue_itWT_LRT/{tissue}/{tissue}_enrich_plot.pdf', tissue=["Head", "Thorax", "Venom", "Ovary"]), ##abdo has no enriched PFAM or GO  terms so R script fails
-     ### meiosis-sp ###
-     'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/meiosis_heatmap.pdf',
-     ### Blast searches ###
-     # ID transcriptome hits for Crawford genes & blast those best hits
+     expand('output/03_deseq2/tissue_itWT/{tissue}/{tissue}_sp_all_annots.csv', tissue=all_tissues),
+     'output/03_deseq2/tissue_LRT/sig_degs.csv',
+     expand('output/03_deseq2/tissue_itWT/{tissue}/{tissue}_enrich_plot.pdf', tissue=["Head", "Thorax", "Venom", "Ovary"]), ##abdo has no enriched PFAM or GO  terms so R script fails
+        ### meiosis-sp ###
+     'output/03_deseq2/meiosis_sp/meiosis_heatmap.pdf',
+        ### Blast searches ###
+         # ID transcriptome hits for Crawford genes & blast those best hits
      'output/04_blast/crawford_transcriptome/best_transcriptome_nr_blast.csv',
-     # blast crawford genes as is
+         # blast crawford genes as is
      'output/04_blast/crawford_nr/transcripts_best_nrblast.csv',
-     # blast venom DEGs with signalp
-     'output/04_blast/venom_trinotate_signalp/venom_signalp_nr_blastx.outfmt6'
+        # blast venom DEGs with signalp
+     'output/04_blast/venom_signalp/venom_signalp_nr_blastx.outfmt6'
 
 ###############################################
 ## blast venom degs with signalp for nr hits ##
@@ -61,7 +59,7 @@ rule trinotate_signalp_venom_blastx:
     input:
         unann_deg_transcripts = 'output/04_blast/venom_trinotate_signalp/transcripts.fasta'
     output:
-        blastx_res = 'output/04_blast/venom_trinotate_signalp/venom_signalp_nr_blastx.outfmt6'
+        blastx_res = 'output/04_blast/venom_signalp/venom_signalp_nr_blastx.outfmt6'
     params:
         blast_db = 'bin/blast_db/nr/nr'
     threads:
@@ -84,7 +82,7 @@ rule filter_venom_signalp_fasta:
         mh_transcriptome = 'data/mh-transcriptome/output/trinity_filtered_isoforms/isoforms_by_length.fasta',
         transcript_ids = 'output/04_blast/venom_signalp/deg_ids_signalp.txt'
     output:
-        transcripts = 'output/04_blast/venom_trinotate_signalp/transcripts.fasta'
+        transcripts = 'output/04_blast/venom_signalp/transcripts.fasta'
     singularity:
         bbduk_container
     log:
@@ -103,7 +101,7 @@ rule filter_venom_signalp_fasta:
 # 66 of those no nr blast search yet
 rule filter_venom_signalp:
     input:
-        venom_file = 'output/03_deseq2/tissue_itWT_LRT/Venom/Venom_sp_LRT_all_annots.csv'
+        venom_file = 'output/03_deseq2/tissue_itWT/Venom/Venom_sp_all_annots.csv'
     output:
         deg_ids = 'output/04_blast/venom_signalp/deg_ids_signalp.txt'
     log:
@@ -180,7 +178,7 @@ rule crawford_transcriptome_res:
     input:
         res_file = 'output/04_blast/crawford_transcriptome/blastn.outfmt6',
         trinotate_file = 'data/mh-transcriptome/output/trinotate/sorted/longest_isoform_annots.csv',
-        venom_degs_file = 'output/03_deseq2/tissue_itWT_LRT/Venom/Venom_sp_LRT_annots.csv',
+        venom_degs_file = 'output/03_deseq2/tissue_itWT/Venom/Venom_sp_LRT_annots.csv',
         transcript_lengths_file = 'data/mh-transcriptome/output/trinity_abundance/RSEM.isoforms.results',
         crawford_lengths_file = 'data/crawford_seq/crawford_gene_lengths.csv',
         salmon_tpm_file = 'output/03_deseq2/salmon_TPM.csv'
@@ -276,16 +274,216 @@ rule crawford_nrblast:
         '-outfmt "6 std salltitles" > {output.blastx_res} '
         '2> {log}'
 
+######################
+## meiosis sp genes ##
+######################
+
+rule meiosis_specific_gene_expression:
+    input:
+        ovary_LRT_file = 'output/03_deseq2/tissue_LRT/sig_degs.csv',
+        ovary_LRT_dds_file = 'output/03_deseq2/tissue_LRT/all_mh_tissue_LRT.rds',
+        meiosis_sp_genes_file = 'output/03_deseq2/meiosis_sp/meiosis_genes.csv',
+        meiosis_sp_blast_res = 'output/03_deseq2/meiosis_sp/transcripts_best_nrblast.csv'
+    output:
+        heatmap = 'output/03_deseq2/meiosis_sp/meiosis_heatmap.pdf'
+    singularity:
+        bioconductor_container
+    log:
+        'output/logs/deseq2/meiosis_specific_genes.log'
+    script:
+        'src/meiosis_sp/meiosis_specific_gene_expression.R'
+
+rule ID_meiosis_specific_genes:
+    input:
+        trinotate_file = 'data/mh-transcriptome/output/trinotate/sorted/longest_isoform_annots.csv',
+        ovary_itWT_file = 'output/03_deseq2/tissue_itWT/Ovary/Ovary_sp_annots.csv',
+        dds_file = 'output/03_deseq2/tissue_LRT/all_mh_tissue_LRT.rds',
+        blastx_res = 'output/03_deseq2/meiosis_sp/dmc1_rec8/dmc1_rec8_nr_blastx.outfmt6'
+    output:
+        meiosis_sp_genes = 'output/03_deseq2/meiosis_sp/meiosis_genes.csv',
+        meiosis_ids = 'output/03_deseq2/meiosis_sp/meiosis_ids.txt'
+    singularity:
+        bioconductor_container
+    log:
+        'output/logs/deseq2/ID_meiosis_specific_genes.log'
+    script:
+        'src/meiosis_sp/meiosis_specific_gene_expression.R'
+
+rule tissue_lrt:
+    input:
+        mh_dds_file = 'output/03_deseq2/mh_dds.rds'
+    output:
+        dds = 'output/03_deseq2/tissue_LRT/all_mh_tissue_LRT.rds',
+        all_res = 'output/03_deseq2/tissue_LRT/all_res.csv',
+        sig_res = 'output/03_deseq2/tissue_LRT/sig_degs.csv'
+    singularity:
+        bioconductor_container
+    log:
+        'output/logs/deseq2/tissue_lrt.log'
+    script:
+        'src/tissue_LRT.R'
+
+rule meiosis_nrblast_res:
+    input:
+        res_file = 'output/03_deseq2/meiosis_sp/nr_blastx.outfmt6'
+    output:
+        all_res = 'output/03_deseq2/meiosis_sp/transcripts_all_nrblast.csv',
+        best_res = 'output/03_deseq2/meiosis_sp/transcripts_best_nrblast.csv'
+    log:
+        'output/logs/blast/meiosis_nrblast_res.log'
+    singularity:
+        bioconductor_container
+    script:
+        'src/meiosis_sp/meiosis_nrblast_res.R'
+
+rule blast_meiosis_genes:
+    input:
+        meiosis_transcripts = 'output/03_deseq2/meiosis_sp/meiosis_genes.fasta'
+    output:
+        blastx_res = 'output/03_deseq2/meiosis_sp/nr_blastx.outfmt6'
+    params:
+        blast_db = 'bin/blast_db/nr/nr'
+    threads:
+        50
+    singularity:
+        blast_container
+    log:
+        'output/logs/blast_meiosis_genes.log'
+    shell:
+        'blastx '
+        '-query {input.meiosis_transcripts} '
+        '-db {params.blast_db} '
+        '-num_threads {threads} '
+        '-evalue 1e-05 '
+        '-outfmt "6 std salltitles" > {output.blastx_res} '
+        '2> {log}'
+
+rule filter_meiosis_genes:
+    input:
+        mh_transcriptome = 'data/mh-transcriptome/output/trinity_filtered_isoforms/isoforms_by_length.fasta',
+        transcript_ids = 'output/03_deseq2/meiosis_sp/meiosis_ids.txt'
+    output:
+        meiosis_transcripts = 'output/03_deseq2/meiosis_sp/meiosis_genes.fasta'
+    singularity:
+        bbduk_container
+    log:
+        'output/logs/filter_meiosis_genes.log'
+    shell:
+        'filterbyname.sh '
+        'in={input.mh_transcriptome} '
+        'include=t '
+        'names={input.transcript_ids} '
+        'substring=name '
+        'out={output.meiosis_transcripts} '
+        '&> {log}'
+
+# serch for DMC1 or REC8  - had no trinotate hits
+rule nr_blast_dmc1_rec8_hits:
+    input:
+        meiosis_transcripts = 'output/03_deseq2/meiosis_sp/dmc1_rec8/dmc1_rec8_hits.fasta'
+    output:
+        blastx_res = 'output/03_deseq2/meiosis_sp/dmc1_rec8/dmc1_rec8_nr_blastx.outfmt6'
+    params:
+        blast_db = 'bin/blast_db/nr/nr'
+    threads:
+        50
+    singularity:
+        blast_container
+    log:
+        'output/logs/blast_meiosis_genes.log'
+    shell:
+        'blastx '
+        '-query {input.meiosis_transcripts} '
+        '-db {params.blast_db} '
+        '-num_threads {threads} '
+        '-evalue 1e-05 '
+        '-outfmt "6 std salltitles" > {output.blastx_res} '
+        '2> {log}'
+
+rule filter_dmc1_rec8_hits:
+    input:
+        mh_transcriptome = 'data/mh-transcriptome/output/trinity_filtered_isoforms/isoforms_by_length.fasta',
+        transcript_ids = 'output/03_deseq2/meiosis_sp/dmc1_rec8/dmc1_rec8_hit_ids.txt'
+    output:
+        meiosis_transcripts = 'output/03_deseq2/meiosis_sp/dmc1_rec8/dmc1_rec8_hits.fasta'
+    singularity:
+        bbduk_container
+    log:
+        'output/logs/filter_meiosis_genes.log'
+    shell:
+        'filterbyname.sh '
+        'in={input.mh_transcriptome} '
+        'include=t '
+        'names={input.transcript_ids} '
+        'substring=name '
+        'out={output.meiosis_transcripts} '
+        '&> {log}'
+
+rule dmc1_rec8_hit_ids:
+    input:
+        res_file = 'output/03_deseq2/meiosis_sp/dmc1_rec8/dmc1_rec8_blastx.outfmt6'
+    output:
+        hit_ids = 'output/03_deseq2/meiosis_sp/dmc1_rec8/dmc1_rec8_hit_ids.txt'
+    log:
+        'output/logs/blast/dmc1_rec8_hit_ids.log'
+    singularity:
+        bioconductor_container
+    script:
+        'src/meiosis_sp/dmc1_rec8_hit_ids.R'
+
+rule dmc1_rec8_transcriptome_blast:
+    input:
+        mh_transcriptome = 'data/mh-transcriptome/output/trinity_filtered_isoforms/isoforms_by_length.fasta',
+        db = 'output/03_deseq2/meiosis_sp/dmc1_rec8/dmc1_rec8_db/dmc1_rec8.phr'
+    output:
+        blast_res = 'output/03_deseq2/meiosis_sp/dmc1_rec8/dmc1_rec8_blastx.outfmt6'
+    params:
+        db = 'output/03_deseq2/meiosis_sp/dmc1_rec8/dmc1_rec8_db/dmc1_rec8'
+    threads:
+        20
+    singularity:
+        blast_container
+    log:
+        'output/logs/blast/dmc1_rec8_transcriptome_blast.log'
+    shell:
+        'blastx '
+        '-query {input.mh_transcriptome} '
+        '-db {params.db} '
+        '-num_threads {threads} '
+        '-evalue 1e-05 '
+        '-outfmt "6 std salltitles" > {output.blast_res} '
+        '2>{log}'
+
+rule dmc1_rec8_blast_db:
+    input:
+        dmc1_rec8 = 'data/DMC1_REC8.fa'
+    output:
+        'output/03_deseq2/meiosis_sp/dmc1_rec8/dmc1_rec8_db/dmc1_rec8.phr'
+    params:
+        db = 'output/03_deseq2/meiosis_sp/dmc1_rec8/dmc1_rec8_db/dmc1_rec8'
+    threads:
+        10
+    log:
+        'output/logs/blast/mh_blast_db.log'
+    shell:
+        'makeblastdb '
+        '-in {input.dmc1_rec8} '
+        '-dbtype prot '
+        '-title mh_transcriptome '
+        '-out {params.db} '
+        '-parse_seqids '
+        '2> {log}'
+
 #############################
 ## blast unann tissue DEGs ##
 ############################# 
 
 rule merge_deg_annots_unann_blast:
     input:
-        deg_file = 'output/03_deseq2/tissue_itWT_LRT/{tissue}/{tissue}_sp_LRT_annots.csv',
+        deg_file = 'output/03_deseq2/tissue_itWT/{tissue}/{tissue}_sp_annots.csv',
         blast_res_file = 'output/04_blast/unann_degs/blast_best_res.csv'
     output:
-        degs_all_annots = 'output/03_deseq2/tissue_itWT_LRT/{tissue}/{tissue}_sp_LRT_all_annots.csv'
+        degs_all_annots = 'output/03_deseq2/tissue_itWT/{tissue}/{tissue}_sp_all_annots.csv'
     singularity:
         bioconductor_container
     log:
@@ -348,7 +546,7 @@ rule filter_unann_deg_transcripts:
 
 rule id_degs_no_blastx:
     input:
-        tissue_sp_annots = expand('output/03_deseq2/tissue_itWT_LRT/{tissue}/{tissue}_sp_LRT_annots.csv', tissue=all_tissues),
+        tissue_sp_annots = expand('output/03_deseq2/tissue_itWT/{tissue}/{tissue}_sp_annots.csv', tissue=all_tissues),
         sig_annots = 'output/03_deseq2/stage_WT/sig_annots.csv'
     output:
         deg_ids_no_blastx = 'output/04_blast/deg_ids_no_blastx.txt'
@@ -357,205 +555,17 @@ rule id_degs_no_blastx:
     log:
         'output/logs/blast/id_degs_no_blastx.log'
     script:
-        'src/blast_res/id_degs_no_blastx.R'
-
-######################
-## meiosis sp genes ##
-######################
-
-rule meiosis_specific_gene_expression:
-    input:
-        ovary_LRT_file = 'output/03_deseq2/tissue_itWT_LRT/Ovary/sig_Ovary_lrt.csv',
-        ovary_LRT_dds_file = 'output/03_deseq2/tissue_itWT_LRT/Ovary/Ovary_LRT_dds.rds',
-        meiosis_sp_genes_file = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/meiosis_genes.csv',
-        meiosis_sp_blast_res = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/transcripts_best_nrblast.csv'
-    output:
-        heatmap = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/meiosis_heatmap.pdf'
-    singularity:
-        bioconductor_container
-    log:
-        'output/logs/deseq2/meiosis_specific_genes.log'
-    script:
-        'src/meiosis_sp/meiosis_specific_gene_expression.R'
-
-rule meiosis_nrblast_res:
-    input:
-        res_file = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/nr_blastx.outfmt6'
-    output:
-        all_res = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/transcripts_all_nrblast.csv',
-        best_res = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/transcripts_best_nrblast.csv'
-    log:
-        'output/logs/blast/meiosis_nrblast_res.log'
-    singularity:
-        bioconductor_container
-    script:
-        'src/meiosis_sp/meiosis_nrblast_res.R'
-
-rule blast_meiosis_genes:
-    input:
-        meiosis_transcripts = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/meiosis_genes.fasta'
-    output:
-        blastx_res = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/nr_blastx.outfmt6'
-    params:
-        blast_db = 'bin/blast_db/nr/nr'
-    threads:
-        50
-    singularity:
-        blast_container
-    log:
-        'output/logs/blast_meiosis_genes.log'
-    shell:
-        'blastx '
-        '-query {input.meiosis_transcripts} '
-        '-db {params.blast_db} '
-        '-num_threads {threads} '
-        '-evalue 1e-05 '
-        '-outfmt "6 std salltitles" > {output.blastx_res} '
-        '2> {log}'
-
-rule filter_meiosis_genes:
-    input:
-        mh_transcriptome = 'data/mh-transcriptome/output/trinity_filtered_isoforms/isoforms_by_length.fasta',
-        transcript_ids = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/meiosis_ids.txt'
-    output:
-        meiosis_transcripts = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/meiosis_genes.fasta'
-    singularity:
-        bbduk_container
-    log:
-        'output/logs/filter_meiosis_genes.log'
-    shell:
-        'filterbyname.sh '
-        'in={input.mh_transcriptome} '
-        'include=t '
-        'names={input.transcript_ids} '
-        'substring=name '
-        'out={output.meiosis_transcripts} '
-        '&> {log}'
-
-rule ID_meiosis_specific_genes:
-    input:
-        trinotate_file = 'data/mh-transcriptome/output/trinotate/sorted/longest_isoform_annots.csv',
-        ovary_LRT_file = 'output/03_deseq2/tissue_itWT_LRT/Ovary/sig_Ovary_lrt.csv',
-        ovary_LRT_dds_file = 'output/03_deseq2/tissue_itWT_LRT/Ovary/Ovary_LRT_dds.rds',
-        blastx_res = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/dmc1_rec8/dmc1_rec8_nr_blastx.outfmt6'
-    output:
-        meiosis_sp_genes = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/meiosis_genes.csv',
-        meiosis_ids = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/meiosis_ids.txt'
-    singularity:
-        bioconductor_container
-    log:
-        'output/logs/deseq2/ID_meiosis_specific_genes.log'
-    script:
-        'src/meiosis_sp/meiosis_specific_gene_expression.R'
-
-# serch for DMC1 or REC8  - had no trinotate hits
-rule nr_blast_dmc1_rec8_hits:
-    input:
-        meiosis_transcripts = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/dmc1_rec8/dmc1_rec8_hits.fasta'
-    output:
-        blastx_res = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/dmc1_rec8/dmc1_rec8_nr_blastx.outfmt6'
-    params:
-        blast_db = 'bin/blast_db/nr/nr'
-    threads:
-        50
-    singularity:
-        blast_container
-    log:
-        'output/logs/blast_meiosis_genes.log'
-    shell:
-        'blastx '
-        '-query {input.meiosis_transcripts} '
-        '-db {params.blast_db} '
-        '-num_threads {threads} '
-        '-evalue 1e-05 '
-        '-outfmt "6 std salltitles" > {output.blastx_res} '
-        '2> {log}'
-
-rule filter_dmc1_rec8_hits:
-    input:
-        mh_transcriptome = 'data/mh-transcriptome/output/trinity_filtered_isoforms/isoforms_by_length.fasta',
-        transcript_ids = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/dmc1_rec8/dmc1_rec8_hit_ids.txt'
-    output:
-        meiosis_transcripts = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/dmc1_rec8/dmc1_rec8_hits.fasta'
-    singularity:
-        bbduk_container
-    log:
-        'output/logs/filter_meiosis_genes.log'
-    shell:
-        'filterbyname.sh '
-        'in={input.mh_transcriptome} '
-        'include=t '
-        'names={input.transcript_ids} '
-        'substring=name '
-        'out={output.meiosis_transcripts} '
-        '&> {log}'
-
-rule dmc1_rec8_hit_ids:
-    input:
-        res_file = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/dmc1_rec8/dmc1_rec8_blastx.outfmt6'
-    output:
-        hit_ids = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/dmc1_rec8/dmc1_rec8_hit_ids.txt'
-    log:
-        'output/logs/blast/dmc1_rec8_hit_ids.log'
-    singularity:
-        bioconductor_container
-    script:
-        'src/meiosis_sp/dmc1_rec8_hit_ids.R'
-
-rule dmc1_rec8_transcriptome_blast:
-    input:
-        mh_transcriptome = 'data/mh-transcriptome/output/trinity_filtered_isoforms/isoforms_by_length.fasta',
-        db = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/dmc1_rec8_db/dmc1_rec8.phr'
-    output:
-        blast_res = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/dmc1_rec8/dmc1_rec8_blastx.outfmt6'
-    params:
-        db = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/dmc1_rec8/dmc1_rec8_db/dmc1_rec8'
-    threads:
-        20
-    singularity:
-        blast_container
-    log:
-        'output/logs/blast/dmc1_rec8_transcriptome_blast.log'
-    shell:
-        'blastx '
-        '-query {input.mh_transcriptome} '
-        '-db {params.db} '
-        '-num_threads {threads} '
-        '-evalue 1e-05 '
-        '-outfmt "6 std salltitles" > {output.blast_res} '
-        '2>{log}'
-
-rule dmc1_rec8_blast_db:
-    input:
-        dmc1_rec8 = 'data/DMC1_REC8.fa'
-    output:
-        'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/dmc1_rec8/dmc1_rec8_db/dmc1_rec8.phr'
-    params:
-        db = 'output/03_deseq2/tissue_itWT_LRT/meiosis_sp/dmc1_rec8/dmc1_rec8_db/dmc1_rec8'
-    threads:
-        10
-    log:
-        'output/logs/blast/mh_blast_db.log'
-    shell:
-        'makeblastdb '
-        '-in {input.dmc1_rec8} '
-        '-dbtype prot '
-        '-title mh_transcriptome '
-        '-out {params.db} '
-        '-parse_seqids '
-        '2> {log}'
+        'src/blast_res/unann/id_degs_no_blastx.R'
 
 ##############
 ## stage DE ##
 ##############
 
-#rule stage_FGSEA:
-
 rule stage_WT:
     input:
         mh_dds_file = 'output/03_deseq2/mh_dds.rds',
         trinotate_file = 'data/mh-transcriptome/output/trinotate/sorted/longest_isoform_annots.csv',
-        tissue_sp_annots = expand('output/03_deseq2/tissue_itWT_LRT/{tissue}/{tissue}_sp_LRT_annots.csv', tissue=all_tissues)
+        tissue_sp_annots = expand('output/03_deseq2/tissue_itWT/{tissue}/{tissue}_sp_annots.csv', tissue=all_tissues)
     output:
         stage_dds = 'output/03_deseq2/stage_WT/mh_stage_dds.rds',
         res_group = 'output/03_deseq2/stage_WT/res_group.csv',
@@ -576,31 +586,31 @@ rule stage_WT:
 
 rule plot_tissue_enrichment:
     input:
-        pfam_file = 'output/03_deseq2/tissue_itWT_LRT/{tissue}/{tissue}_PFAM_enrichment.csv',
-        go_file  = 'output/03_deseq2/tissue_itWT_LRT/{tissue}/{tissue}_GO_enrichment.csv'
+        pfam_file = 'output/03_deseq2/tissue_itWT/{tissue}/{tissue}_PFAM_enrichment.csv',
+        go_file  = 'output/03_deseq2/tissue_itWT/{tissue}/{tissue}_GO_enrichment.csv'
     output:
-        enrich_plot = 'output/03_deseq2/tissue_itWT_LRT/{tissue}/{tissue}_enrich_plot.pdf'
+        enrich_plot = 'output/03_deseq2/tissue_itWT/{tissue}/{tissue}_enrich_plot.pdf'
     singularity:
         bioconductor_container
     log:
         'output/logs/deseq2/plot_{tissue}_enrichment.log'
     script:
-        'src/tissue_itWT_LRT/tissue_enrichment/plot_tissue_enrichment.R'
+        'src/tissue_itWT/tissue_enrichment/plot_tissue_enrichment.R'
 
 rule tissue_specific_term_enrichment:
     input:
-        tissue_DEG_file = 'output/03_deseq2/tissue_itWT_LRT/{tissue}/{tissue}_sp_LRT_annots.csv',
+        tissue_DEG_file = 'output/03_deseq2/tissue_itWT/{tissue}/{tissue}_sp_annots.csv',
         term_annot_table_file = 'output/03_deseq2/{term}_annots/{term}_annots.csv',
         term_to_gene_file = 'output/03_deseq2/{term}_annots/{term}_to_gene.csv',
         term_to_name_file = 'output/03_deseq2/{term}_annots/{term}_to_name.csv'
     output:
-        enrichment_table = 'output/03_deseq2/tissue_itWT_LRT/{tissue}/{tissue}_{term}_enrichment.csv'
+        enrichment_table = 'output/03_deseq2/tissue_itWT/{tissue}/{tissue}_{term}_enrichment.csv'
     singularity:
         bioconductor_container
     log:
         'output/logs/deseq2/{tissue}_specific_{term}_enrichment.log'
     script:
-        'src/tissue_itWT_LRT/tissue_enrichment/tissue_specific_{wildcards.term}_enrichment.R'
+        'src/tissue_itWT/tissue_enrichment/tissue_specific_{wildcards.term}_enrichment.R'
 
 rule term_to_gene:
     input:
@@ -614,40 +624,36 @@ rule term_to_gene:
     log:
         'output/logs/deseq2/{term}_term_to_gene.log'
     script:
-        'src/tissue_itWT_LRT/tissue_enrichment/{wildcards.term}_to_geneID.R'
+        'src/tissue_itWT/tissue_enrichment/{wildcards.term}_to_geneID.R'
 
-rule tissue_itWT_LRT:
+rule tissue_itWT_tests:
     input:
-        mh_itWT_dds_file = 'output/03_deseq2/tissue_itWT_LRT/mh_itWT.rds',
-        mh_adult_dds_file = 'output/03_deseq2/mh_adult_dds.rds',
+        mh_itWT_dds_file = 'output/03_deseq2/tissue_itWT/mh_itWT.rds',
         trinotate_file = 'data/mh-transcriptome/output/trinotate/sorted/longest_isoform_annots.csv',
         salmon_tpm_file = 'output/03_deseq2/salmon_TPM.csv'
     output:
-        tissue_annots = 'output/03_deseq2/tissue_itWT_LRT/{tissue}/{tissue}_sp_LRT_annots.csv',
-        itWT_venn = 'output/03_deseq2/tissue_itWT_LRT/{tissue}/{tissue}_itWT_venn.pdf',
-        itWT_LRT_venn = 'output/03_deseq2/tissue_itWT_LRT/{tissue}/{tissue}_itWT_LRT_venn.pdf',
-        heatmap = 'output/03_deseq2/tissue_itWT_LRT/{tissue}/{tissue}_heatmap.pdf',
-        clustered_heatmap = 'output/03_deseq2/tissue_itWT_LRT/{tissue}/{tissue}_clustered_heatmap.pdf'
+        tissue_annots = 'output/03_deseq2/tissue_itWT/{tissue}/{tissue}_sp_annots.csv',
+        itWT_venn = 'output/03_deseq2/tissue_itWT/{tissue}/{tissue}_itWT_venn.pdf',
+        heatmap = 'output/03_deseq2/tissue_itWT/{tissue}/{tissue}_heatmap.pdf',
+        clustered_heatmap = 'output/03_deseq2/tissue_itWT/{tissue}/{tissue}_clustered_heatmap.pdf'
     singularity:
         bioconductor_container
     log:
         'output/logs/deseq2/{tissue}_itWT_dds.log'
     script:
-        'src/tissue_itWT_LRT/{wildcards.tissue}_itWT_LRT.R'
+        'src/tissue_itWT/{wildcards.tissue}_itWT.R'
 
 rule tissue_itWT_dds:
     input:
         mh_dds_file = 'output/03_deseq2/mh_dds.rds'
     output:
-        mh_itWT_dds = 'output/03_deseq2/tissue_itWT_LRT/mh_itWT.rds'
+        mh_itWT_dds = 'output/03_deseq2/tissue_itWT/mh_itWT.rds'
     singularity:
         bioconductor_container
     log:
         'output/logs/deseq2/tissue_itWT_dds.log'
     script:
-        'src/tissue_itWT_LRT/tissue_itWT_dds.R'
-
-rule tissue_lrt:
+        'src/tissue_itWT/tissue_itWT_dds.R'
 
 ########################
 ## initial DGE set up ##
@@ -659,7 +665,7 @@ rule PCA_analysis:
         sample_data_file = 'data/sample_table.csv'
     output:
         PCA_tissue = 'output/03_deseq2/PCA/PCA_tissue.pdf',
-        PCA_replicate = 'output/03_deseq2/PCA/PCA_replicate.pdf',
+        PCA_batch = 'output/03_deseq2/PCA/PCA_replicate.pdf',
         PCA_seqrun = 'output/03_deseq2/PCA/PCA_seqrun.pdf'
     singularity:
         bioconductor_container
@@ -676,7 +682,6 @@ rule make_mh_dds:
     output:
         salmon_tpm = 'output/03_deseq2/salmon_TPM.csv',
         mh_dds = 'output/03_deseq2/mh_dds.rds',
-        mh_adult_dds = 'output/03_deseq2/mh_adult_dds.rds'
     log:
         'output/logs/deseq2/make_dds.log'
     singularity:

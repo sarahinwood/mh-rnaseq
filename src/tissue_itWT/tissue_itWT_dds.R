@@ -34,10 +34,11 @@ mh_dds <- readRDS(mh_dds_file)
 mh_dds_tissue <- mh_dds[,mh_dds$stage=="adult"]
 ##re-level tissue factor
 mh_dds_tissue$Tissue <- factor(mh_dds_tissue$tissue, levels=c("Head", "Thorax", "Abdomen", "Ovaries", "Venom"))
-mh_dds_tissue$Rep <- factor(mh_dds_tissue$rep)
 mh_dds_tissue$Flowcell <- factor(mh_dds_tissue$flowcell)
+mh_dds_tissue$Batch <- factor(mh_dds_tissue$batch)
 
-design(mh_dds_tissue) <- ~Flowcell+Rep+Tissue
+
+design(mh_dds_tissue) <- ~Flowcell+Batch+Tissue
 mh_dds_tissue <- DESeq(mh_dds_tissue)
 saveRDS(mh_dds_tissue, snakemake@output[["mh_itWT_dds"]])
 

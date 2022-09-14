@@ -38,35 +38,35 @@ sample_data <- fread(sample_data_file)
 sample_to_seqrun <- sample_data[,c(1,5)]
 
 mh_dds$tissue <- factor(mh_dds$tissue, levels=c("Head", "Thorax", "Abdomen", "Ovaries", "Venom", "Pupa"))
-mh_dds$rep <- factor(mh_dds$rep)
+mh_dds$batch <- factor(mh_dds$batch)
 mh_dds$flowcell <- factor(mh_dds$flowcell)
 
 mh_vst <- varianceStabilizingTransformation(mh_dds, blind=TRUE)
 
 ##plot PCA with first 2 dimensions to investigate sample clustering - tissue
-pca_plot_tissue <- plotPCA(mh_vst, intgroup=c("tissue"), returnData=TRUE)
-percentVar <- round(100 * attr(pca_plot_tissue, "percentVar")) 
+pca_plot_tissue <- plotPCA(mh_vst, intgroup=c("tissue", "batch"), returnData=TRUE)
+percentVar <- round(100 * attr(pca_plot_tissue, "percentVar"))
 ##PCA plot (save with dim.s 3.00 x 8.00)
 ## tissue ##
 pdf(snakemake@output[["PCA_tissue"]])
-ggplot(pca_plot_tissue, aes(x=PC1, y=PC2, color=tissue))+
-  geom_point(size=3, alpha=0.7)+
+ggplot(pca_plot_tissue, aes(x=PC1, y=PC2, color=tissue, shape=batch))+
+  geom_point(size=3.5, alpha=0.5)+
   scale_color_viridis(discrete=TRUE)+
-  labs(colour="Tissue")+
+  labs(colour="Tissue", shape="Batch")+
   xlab(paste("PC1:", percentVar[1], "% variance")) + 
   ylab(paste("PC2:", percentVar[2], "% variance")) + 
   coord_fixed()+
   theme_bw()
 dev.off()
 
-## replicate ##
-pca_plot_rep <- plotPCA(mh_vst, intgroup=c("rep"), returnData=TRUE)
-percentVar <- round(100 * attr(pca_plot_rep, "percentVar")) 
-pdf(snakemake@output[["PCA_replicate"]])
-ggplot(pca_plot_rep, aes(x=PC1, y=PC2, color=rep))+
+## batch ##
+pca_plot_batch <- plotPCA(mh_vst, intgroup=c("batch"), returnData=TRUE)
+percentVar <- round(100 * attr(pca_plot_batch, "percentVar")) 
+pdf(snakemake@output[["PCA_batch"]])
+ggplot(pca_plot_batch, aes(x=PC1, y=PC2, color=batch))+
   geom_point(size=3, alpha=0.7)+
   scale_color_viridis(discrete=TRUE)+
-  labs(colour="Replicate")+
+  labs(colour="Batch")+
   xlab(paste("PC1:", percentVar[1], "% variance")) + 
   ylab(paste("PC2:", percentVar[2], "% variance")) + 
   coord_fixed()+

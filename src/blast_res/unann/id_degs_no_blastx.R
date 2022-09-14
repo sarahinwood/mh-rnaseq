@@ -23,7 +23,7 @@ library(data.table)
 # MAIN #
 ########
 
-tissue_files <- list.files("output/03_deseq2/tissue_itWT_LRT", "_sp_LRT_annots.csv", recursive=T, full.names = T)
+tissue_files <- list.files("output/03_deseq2/tissue_itWT", "_sp_annots.csv", recursive=T, full.names = T)
 stage_file <- "output/03_deseq2/stage_WT/sig_w_blast_annots.csv"
 deg_files <- c(tissue_files, stage_file)
 

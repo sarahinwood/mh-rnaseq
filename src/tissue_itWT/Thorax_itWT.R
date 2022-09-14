@@ -28,7 +28,6 @@ library(viridis)
 ###########
 
 mh_itWT_dds_file <- snakemake@input[["mh_itWT_dds_file"]]
-mh_adult_dds_file <- snakemake@input[["mh_adult_dds_file"]]
 trinotate_file <- snakemake@input[["trinotate_file"]]
 
 ########
@@ -89,56 +88,18 @@ grid.draw(vd1)
 dev.off()
 
 thorax_specific_DEGs <- intersect(intersect(intersect(head$rn, venom$rn), abdo$rn), ovaries$rn)
-
-#####################
-## LRT tissue test ##
-#####################
-
-mh_dds_lrt <- readRDS(mh_adult_dds_file)
-## re-level tissue factor - thorax is tissue of interest so put as first level
-mh_dds_lrt$Tissue <- factor(mh_dds_lrt$tissue, levels=c("Thorax", "Head", "Abdomen", "Ovaries", "Venom"))
-mh_dds_lrt$Rep <- factor(mh_dds_lrt$rep)
-mh_dds_lrt$Flowcell <- factor(mh_dds_lrt$flowcell)
-## test
-design(mh_dds_lrt) <- ~Flowcell+Rep+Tissue
-mh_dds_lrt <- DESeq(mh_dds_lrt, test="LRT", reduced=~Flowcell+Rep)
-## results
-res_group <- results(mh_dds_lrt, alpha = 0.05)
-summary(res_group)
-## Order based of padj
-ordered_res_group <- res_group[order(res_group$padj),]
-## Make data table and write to output
-ordered_res_group_table <- data.table(data.frame(ordered_res_group), keep.rownames = TRUE)
-lrt_sig_res_group_table <- subset(ordered_res_group_table, padj < 0.05)
-
-#########################
-## overlap WT and LRT  ##
-#########################
+thorax_v_ovary_ts <- subset(ovaries, rn %in% thorax_specific_DEGs)
 
 trinotate <- fread(trinotate_file, na.strings = ".")
-LRT_thorax_degs <- subset(lrt_sig_res_group_table, rn %in% thorax_specific_DEGs)
-LRT_thorax_degs_annots <- merge(LRT_thorax_degs, trinotate, by.x="rn", by.y="#gene_id", all.x=TRUE)
-fwrite(LRT_thorax_degs_annots, snakemake@output[["tissue_annots"]])
-
-# unann_blast_res <- fread("output/deseq2/tissue_itWT_LRT/unann_degs/min_evalues.csv")
-# LRT_thorax_degs_annots_blast <- merge(LRT_thorax_degs_annots, unann_blast_res, by="transcript_id", all.x=TRUE)
-
-pdf(snakemake@output[["itWT_LRT_venn"]])
-vd_thor <- venn.diagram(x = list("itWT thorax DEGs"=thorax_specific_DEGs, "LRT"=lrt_sig_res_group_table$rn), filename=NULL, alpha=0.7, cex = 1, cat.cex=1, lwd=1.5)
-grid.newpage()
-grid.draw(vd_thor)
-dev.off()
-
-## not sig in lrt?
-not_LRT_thorax_degs_ids <- setdiff(thorax_specific_DEGs, lrt_sig_res_group_table$rn)
-thorax_not_lrt <- subset(ordered_res_group_table, rn %in% not_LRT_thorax_degs_ids)
+thorax_degs_annots <- merge(thorax_v_ovary_ts, trinotate, by.x="rn", by.y="#gene_id", all.x=TRUE)
+fwrite(thorax_degs_annots, snakemake@output[["tissue_annots"]])
 
 #############
 ## heatmap ##
 #############
 
 ## vst transform
-mh_vst <- varianceStabilizingTransformation(mh_dds_lrt, blind=TRUE)
+mh_vst <- varianceStabilizingTransformation(mh_itWT_dds, blind=TRUE)
 mh_vst_assay_dt <- data.table(assay(mh_vst), keep.rownames=TRUE)
 ## subset for DEGs
 mh_vst_degs <- subset(mh_vst_assay_dt, rn %in% thorax_specific_DEGs)
@@ -148,10 +109,10 @@ mh_vst_degs <- mh_vst_degs %>% remove_rownames %>% column_to_rownames(var="rn")
 mh_vst_degs_plot <- mh_vst_degs[,c(10,11,12,4,5,6,16,1,2,3,15,7,8,9,17,18,13,14)]
 
 ## get tissue label info
-sample_to_tissue <- data.table(data.frame(colData(mh_dds_lrt)[,c("Tissue", "sample_name")]))
+sample_to_tissue <- data.table(data.frame(colData(mh_itWT_dds)[,c("Tissue", "sample_name")]))
 sample_to_tissue <- sample_to_tissue %>% remove_rownames %>% column_to_rownames(var="sample_name")
 ## for plot label
-sample_to_tissue <- as.data.frame(colData(mh_dds_lrt)[,c("Tissue", "sample_name")])
+sample_to_tissue <- as.data.frame(colData(mh_itWT_dds)[,c("Tissue", "sample_name")])
 sample_to_tissue <- sample_to_tissue %>% remove_rownames %>% column_to_rownames(var="sample_name")
 
 tissue_colours <- list(Tissue = c(Head='#2D1160FF', Thorax='#721F81FF', Abdomen='#B63679FF', Ovaries='#F1605DFF', Venom='#FEAF77FF'))
