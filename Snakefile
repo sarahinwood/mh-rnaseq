@@ -30,30 +30,71 @@ bioconductor_container = 'library://sinwood/bioconductor/bioconductor_3.12:0.0.1
 rule target:
     input:
         ### QC ###
-     'output/02_multiqc/multiqc_report.html',
+     #'output/02_multiqc/multiqc_report.html',
         ### DESeq2 analysis ###
      'output/03_deseq2/PCA/PCA_tissue.pdf',
-     expand('output/03_deseq2/tissue_itWT/{tissue}/{tissue}_sp_all_annots.csv', tissue=all_tissues),
-     'output/03_deseq2/tissue_LRT/sig_degs.csv',
-     expand('output/03_deseq2/tissue_itWT/{tissue}/{tissue}_enrich_plot.pdf', tissue=["Head", "Thorax", "Venom", "Ovary"]), ##abdo has no enriched PFAM or GO  terms so R script fails
+     #expand('output/03_deseq2/tissue_itWT/{tissue}/{tissue}_sp_all_annots.csv', tissue=all_tissues),
+     #'output/03_deseq2/tissue_LRT/sig_degs.csv',
+     #expand('output/03_deseq2/tissue_itWT/{tissue}/{tissue}_enrich_plot.pdf', tissue=["Head", "Thorax", "Venom", "Ovary"]), ##abdo has no enriched PFAM or GO  terms so R script fails
         ### meiosis-sp ###
-     'output/03_deseq2/meiosis_sp/meiosis_heatmap.pdf',
+     #'output/03_deseq2/meiosis_sp/meiosis_heatmap.pdf',
         ### Blast searches ###
          # ID transcriptome hits for Crawford genes & blast those best hits
-     'output/04_blast/crawford_transcriptome/best_transcriptome_nr_blast.csv',
+     #'output/04_blast/crawford_transcriptome/best_transcriptome_nr_blast.csv',
          # blast crawford genes as is
-     'output/04_blast/crawford_nr/transcripts_best_nrblast.csv',
+     #'output/04_blast/crawford_nr/transcripts_best_nrblast.csv',
         # blast venom DEGs with signalp
-     'output/04_blast/venom_signalp/venom_signalp_nr_blastx.outfmt6'
+     #'output/04_blast/venom_signalp/venom_signalp_nr_blastx.outfmt6',
+     'supp_tables/venom_blast/new_nr_blastx.outfmt6'
+
+## blast venom genes for paper table
+
+
+
+rule blastx_genes:
+    input:
+        unann_deg_transcripts = 'supp_tables/venom_blast/transcripts_new.fasta'
+    output:
+        blastx_res = 'supp_tables/venom_blast/new_nr_blastx.outfmt6'
+    params:
+        blast_db = 'bin/blast_db/nr/nr'
+    threads:
+        50
+    singularity:
+        blast_container
+    log:
+        'supp_tables/venom_blast/venom_blastx.log'
+    shell:
+        'blastx '
+        '-query {input.unann_deg_transcripts} '
+        '-db {params.blast_db} '
+        '-num_threads {threads} '
+        '-evalue 1e-05 '
+        '-outfmt "6 std salltitles" > {output.blastx_res} '
+        '2> {log}'
+
+rule filter_genes:
+    input:
+        mh_transcriptome = 'data/mh-transcriptome/output/trinity_filtered_isoforms/isoforms_by_length.fasta',
+        transcript_ids = 'supp_tables/venom_blast/new_to_blast.txt'
+    output:
+        transcripts = 'supp_tables/venom_blast/transcripts_new.fasta'
+    singularity:
+        bbduk_container
+    log:
+        'supp_tables/venom_blast/filter_genes.log'
+    shell:
+        'filterbyname.sh '
+        'in={input.mh_transcriptome} '
+        'include=t '
+        'names={input.transcript_ids} '
+        'substring=name '
+        'out={output.transcripts} '
+        '&> {log}'
 
 ###############################################
 ## blast venom degs with signalp for nr hits ##
 ###############################################
-
-#rule signalp_venom_blast_res:
-#    input:
-#        blastx_res = 'output/04_blast/venom_trinotate_signalp/venom_signalp_nr_blastx.outfmt6'
-#    output:
 
 rule trinotate_signalp_venom_blastx:
     input:

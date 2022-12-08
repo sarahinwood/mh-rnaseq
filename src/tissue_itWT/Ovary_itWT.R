@@ -48,7 +48,7 @@ ordered_ov_head <- ov_head[order(ov_head$padj),]
 ## Make data table and write to output
 ordered_ov_head_table <- data.table(data.frame(ordered_ov_head), keep.rownames = TRUE)
 head <- subset(ordered_ov_head_table, padj < 0.05)
-head$tissue <- paste("head")
+ordered_ov_head_table$tissue <- paste("head")
 
 ## ovaries abdo
 ov_abdo <- results(mh_itWT_dds, contrast=c("Tissue", "Ovaries", "Abdomen"), alpha = 0.05, lfcThreshold = 1)
@@ -58,7 +58,7 @@ ordered_ov_abdo <- ov_abdo[order(ov_abdo$padj),]
 ## Make data table and write to output
 ordered_ov_abdo_table <- data.table(data.frame(ordered_ov_abdo), keep.rownames = TRUE)
 abdo <- subset(ordered_ov_abdo_table, padj < 0.05)
-abdo$tissue <- paste("abdo")
+ordered_ov_abdo_table$tissue <- paste("abdo")
 
 ## ovaries thorax
 ov_thorax <- results(mh_itWT_dds, contrast=c("Tissue", "Ovaries", "Thorax"), alpha = 0.05, lfcThreshold = 1)
@@ -68,7 +68,7 @@ ordered_ov_thorax <- ov_thorax[order(ov_thorax$padj),]
 ## Make data table and write to output
 ordered_ov_thorax_table <- data.table(data.frame(ordered_ov_thorax), keep.rownames = TRUE)
 thorax <- subset(ordered_ov_thorax_table, padj < 0.05)
-thorax$tissue <- paste("thorax")
+ordered_ov_thorax_table$tissue <- paste("thorax")
 
 ## ovaries venom 
 ov_venom <- results(mh_itWT_dds, contrast=c("Tissue", "Ovaries", "Venom"), alpha = 0.05, lfcThreshold = 1)
@@ -78,9 +78,10 @@ ordered_venom_ov <- ov_venom[order(ov_venom$padj),]
 ## Make data table and write to output
 ordered_venom_ov_table <- data.table(data.frame(ordered_venom_ov), keep.rownames = TRUE)
 venom <- subset(ordered_venom_ov_table, padj < 0.05)
-venom$tissue <- paste("venom")
+ordered_venom_ov_table$tissue <- paste("venom")
 
-tissue_res <- full_join(head, full_join(abdo, full_join(thorax, venom)))
+tissue_res <- full_join(ordered_ov_head_table, full_join(ordered_ov_abdo_table, full_join(ordered_ov_thorax_table, ordered_venom_ov_table)))
+fwrite(tissue_res, "output/03_deseq2/tissue_itWT/Ovary/Ovary_all_comps_results.csv")
 
 ################################
 ## overlap for ovary-specific ##

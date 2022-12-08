@@ -37,7 +37,7 @@ mh_dds <- readRDS(mh_dds_file)
 sample_data <- fread(sample_data_file)
 sample_to_seqrun <- sample_data[,c(1,5)]
 
-mh_dds$tissue <- factor(mh_dds$tissue, levels=c("Head", "Thorax", "Abdomen", "Ovaries", "Venom", "Pupa"))
+mh_dds$tissue <- factor(mh_dds$tissue, levels=c("Pupa", "Head", "Thorax", "Abdomen", "Venom", "Ovaries"))
 mh_dds$batch <- factor(mh_dds$batch)
 mh_dds$flowcell <- factor(mh_dds$flowcell)
 
